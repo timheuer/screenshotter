@@ -33,7 +33,9 @@ public static class QrCodeService
 /// <summary>
 /// Connection information to encode in QR code.
 /// </summary>
-public record ConnectionInfo(string Ip, int Port);
+public record ConnectionInfo(
+    [property: System.Text.Json.Serialization.JsonPropertyName("ip")] string Ip,
+    [property: System.Text.Json.Serialization.JsonPropertyName("port")] int Port);
 
 /// <summary>
 /// JSON serialization context for AOT compatibility.

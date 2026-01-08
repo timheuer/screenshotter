@@ -7,6 +7,7 @@ struct QRScannerView: View {
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var isValidating = false
+    @State private var scannerID = UUID()
     
     var body: some View {
         NavigationStack {
@@ -15,6 +16,7 @@ struct QRScannerView: View {
                     QRCodeScannerRepresentable(
                         onCodeScanned: handleScannedCode
                     )
+                    .id(scannerID)
                     .ignoresSafeArea()
                     
                     VStack {
@@ -58,6 +60,7 @@ struct QRScannerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .alert("Connection Error", isPresented: $showError) {
                 Button("Try Again") {
+                    scannerID = UUID()
                     isScanning = true
                 }
             } message: {
