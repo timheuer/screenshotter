@@ -5,115 +5,96 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:tb="using:H.NotifyIcon"
     mc:Ignorable="d"
     Title="Screenshotter">
 
-    <Grid>
-        <tb:TaskbarIcon
-            x:Name="TrayIcon"
-            ToolTipText="Screenshotter - Click to configure"
-            LeftClickCommand="{x:Bind ShowPopupCommand}"
-            NoLeftClickDelay="True">
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+            Padding="24">
+        <StackPanel
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="16"
+            MaxWidth="320">
 
-            <!-- Tray Popup (shown on left click) -->
-            <tb:TaskbarIcon.TrayPopup>
-                <Border
-                    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-                    BorderBrush="{ThemeResource SystemControlForegroundBaseMediumBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="16"
-                    MinWidth="280">
-                    <StackPanel Spacing="12">
-                        <!-- Title -->
-                        <TextBlock
-                            Text="📷 Screenshotter"
-                            FontSize="18"
-                            FontWeight="SemiBold"
-                            HorizontalAlignment="Center"/>
+            <!-- Title -->
+            <TextBlock
+                Text="📷 Screenshotter"
+                FontSize="24"
+                FontWeight="SemiBold"
+                HorizontalAlignment="Center"/>
 
-                        <!-- QR Code Image -->
-                        <Border
-                            Background="White"
-                            CornerRadius="4"
-                            Padding="8"
-                            HorizontalAlignment="Center">
-                            <Image
-                                x:Name="QrCodeImage"
-                                Width="150"
-                                Height="150"
-                                Stretch="Uniform"/>
-                        </Border>
+            <TextBlock
+                Text="Scan this QR code with your iPhone to pair"
+                TextWrapping="Wrap"
+                TextAlignment="Center"
+                Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
+                HorizontalAlignment="Center"/>
 
-                        <!-- IP Address -->
-                        <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Center"
-                                Spacing="8">
-                            <TextBlock Text="IP:"
-                                    FontWeight="SemiBold"
-                                    VerticalAlignment="Center"/>
-                            <TextBlock x:Name="IpAddressText"
-                                    Text="Loading..."
-                                    VerticalAlignment="Center"/>
-                        </StackPanel>
+            <!-- QR Code Image -->
+            <Border
+                Background="White"
+                CornerRadius="8"
+                Padding="12"
+                HorizontalAlignment="Center">
+                <Image
+                    x:Name="QrCodeImage"
+                    Width="200"
+                    Height="200"
+                    Stretch="Uniform"/>
+            </Border>
 
-                        <!-- Port -->
-                        <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Center"
-                                Spacing="8">
-                            <TextBlock Text="Port:"
-                                    FontWeight="SemiBold"
-                                    VerticalAlignment="Center"/>
-                            <TextBlock Text="5000"
-                                    VerticalAlignment="Center"/>
-                        </StackPanel>
+            <!-- IP Address -->
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Spacing="8">
+                <TextBlock Text="IP Address:"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"/>
+                <TextBlock x:Name="IpAddressText"
+                           Text="Loading..."
+                           VerticalAlignment="Center"
+                           IsTextSelectionEnabled="True"/>
+            </StackPanel>
 
-                        <!-- Status -->
-                        <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Center"
-                                Spacing="8">
-                            <TextBlock Text="Status:"
-                                    FontWeight="SemiBold"
-                                    VerticalAlignment="Center"/>
-                            <TextBlock x:Name="StatusText"
-                                    Text="Starting..."
-                                    Foreground="Orange"
-                                    VerticalAlignment="Center"/>
-                        </StackPanel>
+            <!-- Port -->
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Spacing="8">
+                <TextBlock Text="Port:"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"/>
+                <TextBlock Text="5000"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
 
-                        <MenuFlyoutSeparator/>
+            <!-- Status -->
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Spacing="8">
+                <TextBlock Text="Server Status:"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"/>
+                <TextBlock x:Name="StatusText"
+                           Text="Starting..."
+                           Foreground="Orange"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
 
-                        <!-- Refresh Button -->
-                        <Button
-                            x:Name="RefreshButton"
-                            Content="🔄 Refresh IP"
-                            HorizontalAlignment="Stretch"
-                            Click="RefreshButton_Click"/>
+            <MenuFlyoutSeparator Margin="0,8"/>
 
-                        <!-- Start with Windows Toggle -->
-                        <ToggleSwitch
-                            x:Name="StartupToggle"
-                            Header="Start with Windows"
-                            Toggled="StartupToggle_Toggled"/>
-                    </StackPanel>
-                </Border>
-            </tb:TaskbarIcon.TrayPopup>
+            <!-- Refresh Button -->
+            <Button
+                x:Name="RefreshButton"
+                Content="🔄 Refresh IP"
+                HorizontalAlignment="Stretch"
+                Click="RefreshButton_Click"/>
 
-            <!-- Context Menu (shown on right click) -->
-            <tb:TaskbarIcon.ContextFlyout>
-                <MenuFlyout>
-                    <MenuFlyoutItem Text="📷 Screenshotter"
-                            IsEnabled="False"/>
-                    <MenuFlyoutSeparator/>
-                    <MenuFlyoutItem Text="Exit"
-                            Click="ExitMenuItem_Click">
-                        <MenuFlyoutItem.Icon>
-                            <SymbolIcon Symbol="Cancel"/>
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                </MenuFlyout>
-            </tb:TaskbarIcon.ContextFlyout>
-        </tb:TaskbarIcon>
+            <!-- Start with Windows Toggle -->
+            <ToggleSwitch
+                x:Name="StartupToggle"
+                Header="Start with Windows"
+                Toggled="StartupToggle_Toggled"
+                HorizontalAlignment="Center"/>
+        </StackPanel>
     </Grid>
 </Window>

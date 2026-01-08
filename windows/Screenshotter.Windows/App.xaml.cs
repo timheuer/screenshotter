@@ -22,11 +22,9 @@ public partial class App : Application
         // Start the API server as a background task
         StartApiServer();
 
-        // Create the main window (will be hidden, only tray icon visible)
+        // Create and show the main window
         _window = new MainWindow();
-
-        // Don't activate the window - keep it hidden
-        // The tray icon will be the only visible UI element
+        _window.Activate();
     }
 
     private void StartApiServer()
