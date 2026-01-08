@@ -1,0 +1,162 @@
+# =============================================================================
+# Screenshotter .gitignore
+# Covers: .NET/WinUI 3 (Windows) and Swift/Xcode (iOS)
+# =============================================================================
+
+# =============================================================================
+# .NET / Visual Studio
+# =============================================================================
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio cache/options
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+
+# MSBuild
+*.log
+msbuild.binlog
+
+# Windows App SDK / MSIX
+*.appx
+*.appxbundle
+*.msix
+*.msixbundle
+*.msixupload
+AppPackages/
+BundleArtifacts/
+
+# Publish output
+publish/
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+
+# Code coverage
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+
+# =============================================================================
+# macOS / Xcode / Swift
+# =============================================================================
+
+# Xcode build
+**/build/
+DerivedData/
+
+# Xcode workspace
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Xcode breakpoints
+*.xcbkptlist
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# CocoaPods
+Pods/
+*.xcworkspace
+!*.xcodeproj/*.xcworkspace
+
+# Carthage
+Carthage/Build/
+Carthage/Checkouts/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output/
+
+# Code Injection
+iOSInjectionProject/
+
+# =============================================================================
+# IDE / Editors
+# =============================================================================
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains Rider
+.idea/
+
+# =============================================================================
+# OS Generated
+# =============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# =============================================================================
+# Secrets / Environment
+# =============================================================================
+
+# Environment files
+.env
+.env.*
+*.local
+
+# Certificates and keys
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+
+# =============================================================================
+# Misc
+# =============================================================================
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
