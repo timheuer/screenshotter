@@ -68,7 +68,7 @@ jobs:
             - name: 📥 Download IPA Artifact
               uses: actions/download-artifact@v4
               with:
-                  name: ${{ needs.build.outputs.artifact_name }}
+                  name: ${{ needs.build.outputs.ios_artifact_name }}
                   path: artifacts
 
             - name: ✈️ Upload to TestFlight
