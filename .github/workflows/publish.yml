@@ -1,0 +1,94 @@
+name: 📨 Publish to TestFlight
+
+on:
+    push:
+        tags:
+            - "v*"
+    workflow_dispatch:
+        inputs:
+            version:
+                description: "Version number (e.g., 1.0.0)"
+                required: false
+                type: string
+
+jobs:
+    calculate-version:
+        runs-on: ubuntu-latest
+        outputs:
+            version: ${{ steps.version.outputs.MARKETING_VERSION }}
+            build_number: ${{ steps.version.outputs.BUILD_NUMBER }}
+        steps:
+            - name: 📥 Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: 🔢 Calculate Version
+              id: version
+              shell: bash
+              run: |
+                  if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
+                    SEMVER="${GITHUB_REF_NAME#v}"
+                  elif [[ -n "${{ inputs.version }}" ]]; then
+                    SEMVER="${{ inputs.version }}"
+                  else
+                    SEMVER="1.0.0"
+                  fi
+
+                  BUILD_NUMBER=$(git rev-list --count HEAD)
+
+                  echo "Marketing Version: $SEMVER"
+                  echo "Build Number: $BUILD_NUMBER"
+
+                  # Write to job summary
+                  echo "## 🚀 Publish Info" >> $GITHUB_STEP_SUMMARY
+                  echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+                  echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+                  echo "| **Version** | \`$SEMVER\` |" >> $GITHUB_STEP_SUMMARY
+                  echo "| **Build Number** | \`$BUILD_NUMBER\` |" >> $GITHUB_STEP_SUMMARY
+                  echo "| **Trigger** | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
+
+                  echo "MARKETING_VERSION=$SEMVER" >> $GITHUB_OUTPUT
+                  echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+
+    build:
+        needs: calculate-version
+        uses: ./.github/workflows/build.yml
+        with:
+            version: ${{ needs.calculate-version.outputs.version }}
+            build_number: ${{ needs.calculate-version.outputs.build_number }}
+        secrets: inherit
+
+    upload:
+        needs: [calculate-version, build]
+        runs-on: macos-15
+        timeout-minutes: 15
+
+        steps:
+            - name: 📥 Download IPA Artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: ${{ needs.build.outputs.artifact_name }}
+                  path: artifacts
+
+            - name: ✈️ Upload to TestFlight
+              shell: bash
+              env:
+                  APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+                  APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+                  APP_STORE_CONNECT_API_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+              run: |
+                  # Find the IPA
+                  IPA_PATH=$(ls artifacts/*.ipa | head -1)
+                  echo "Uploading: $IPA_PATH"
+
+                  # Create API key file
+                  mkdir -p ~/.appstoreconnect/private_keys
+                  echo "$APP_STORE_CONNECT_API_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
+
+                  # Upload using altool
+                  xcrun altool --upload-app \
+                    --type ios \
+                    --file "$IPA_PATH" \
+                    --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
+                    --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
