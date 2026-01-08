@@ -9,8 +9,9 @@ namespace Screenshotter.Windows;
 /// </summary>
 public partial class App : Application
 {
-    private Window? _window;
+    private MainWindow? _window;
     private CancellationTokenSource? _apiServerCts;
+    private TrayIconService? _trayIcon;
 
     public App()
     {
@@ -22,8 +23,37 @@ public partial class App : Application
         // Start the API server as a background task
         StartApiServer();
 
-        // Create and show the main window
+        // Create the main window (but don't show it yet)
         _window = new MainWindow();
+        _window.Closed += Window_Closed;
+
+        // Initialize system tray icon
+        _trayIcon = new TrayIconService(
+            onShowWindow: ShowWindow,
+            onExit: Shutdown
+        );
+
+        // Force create the tray icon
+        _trayIcon.ForceCreate();
+
+        // Show notification on startup
+        _trayIcon.ShowNotification("Screenshotter", "Running in system tray. Double-click to show QR code.");
+    }
+
+    private void Window_Closed(object sender, WindowEventArgs args)
+    {
+        // Prevent window from actually closing - just hide it
+        args.Handled = true;
+        _window?.AppWindow.Hide();
+    }
+
+    public void ShowWindow()
+    {
+        if (_window == null) return;
+
+        // Position window near the tray icon before showing
+        _window.PositionNearTray();
+        _window.AppWindow.Show();
         _window.Activate();
     }
 
@@ -51,9 +81,26 @@ public partial class App : Application
 
     public void Shutdown()
     {
+        // Unhook the closed handler so window can actually close
+        if (_window != null)
+        {
+            _window.Closed -= Window_Closed;
+        }
+
         _apiServerCts?.Cancel();
         _apiServerCts?.Dispose();
-        _window?.Close();
-        Exit();
+        _trayIcon?.Dispose();
+
+        try
+        {
+            _window?.Close();
+        }
+        catch
+        {
+            // Ignore any errors during window close
+        }
+
+        // Force terminate the process
+        System.Diagnostics.Process.GetCurrentProcess().Kill();
     }
 }

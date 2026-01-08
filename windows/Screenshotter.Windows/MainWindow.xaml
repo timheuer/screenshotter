@@ -89,12 +89,26 @@
                 HorizontalAlignment="Stretch"
                 Click="RefreshButton_Click"/>
 
+            <!-- Hide to Tray Button -->
+            <Button
+                x:Name="HideButton"
+                Content="📥 Hide to Tray"
+                HorizontalAlignment="Stretch"
+                Click="HideButton_Click"/>
+
             <!-- Start with Windows Toggle -->
             <ToggleSwitch
                 x:Name="StartupToggle"
                 Header="Start with Windows"
                 Toggled="StartupToggle_Toggled"
                 HorizontalAlignment="Center"/>
+
+            <TextBlock
+                Text="Close window to hide to system tray"
+                FontSize="11"
+                Foreground="{ThemeResource SystemControlForegroundBaseMediumLowBrush}"
+                HorizontalAlignment="Center"
+                TextAlignment="Center"/>
         </StackPanel>
     </Grid>
 </Window>
