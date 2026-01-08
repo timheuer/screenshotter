@@ -92,3 +92,54 @@ jobs:
                     --file "$IPA_PATH" \
                     --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
                     --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+
+    release-windows:
+        needs: [calculate-version, build]
+        runs-on: windows-latest
+        timeout-minutes: 15
+        permissions:
+            contents: write
+
+        steps:
+            - name: 📥 Download Windows Artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: ${{ needs.build.outputs.windows_artifact_name }}
+                  path: windows-build
+
+            - name: 📦 Create Release Zip
+              shell: pwsh
+              run: |
+                  $version = "${{ needs.calculate-version.outputs.version }}"
+                  $zipName = "Screenshotter-Windows-x64-v$version.zip"
+
+                  # Create zip with all files needed to run
+                  Compress-Archive -Path "windows-build/*" -DestinationPath $zipName -Force
+
+                  Write-Host "Created: $zipName"
+                  Get-ChildItem $zipName | Select-Object Name, Length
+
+                  "ZIP_NAME=$zipName" >> $env:GITHUB_OUTPUT
+              id: zip
+
+            - name: 🚀 Create/Update GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ github.ref_name }}
+                  name: Screenshotter v${{ needs.calculate-version.outputs.version }}
+                  body: |
+                      ## Screenshotter v${{ needs.calculate-version.outputs.version }}
+
+                      ### Windows App
+                      Download the zip file below, extract it, and run `Screenshotter.Windows.exe`.
+
+                      **Requirements:**
+                      - Windows 10 or later (x64)
+
+                      No additional runtime installation required - the app is fully self-contained.
+
+                      ### iOS App
+                      The iOS app is available on TestFlight.
+                  files: ${{ steps.zip.outputs.ZIP_NAME }}
+                  fail_on_unmatched_files: true
+                  generate_release_notes: true

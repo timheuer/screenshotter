@@ -314,9 +314,10 @@ jobs:
           dotnet publish ${{ env.PROJECT_PATH }} `
             -c Release `
             -r win-x64 `
-            --no-build `
+            --self-contained true `
             -p:Platform=x64 `
             -p:PublishSingleFile=false `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
             -o ${{ env.OUTPUT_PATH }}/x64
 
       - name: 🏷️ Set Artifact Name
