@@ -1,15 +1,15 @@
 # Run Screenshotter in development mode
-# This registers the MSIX package and launches the app
+# Builds and launches the unpackaged app
 
 $projectDir = $PSScriptRoot
 $configuration = "Debug"
 $platform = "x64"
 
-Write-Host "Building and launching Screenshotter..." -ForegroundColor Cyan
+Write-Host "Building Screenshotter..." -ForegroundColor Cyan
 
 # Build the project
 Push-Location $projectDir
-dotnet build -c $configuration
+dotnet build -c $configuration -p:Platform=$platform
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Build failed!" -ForegroundColor Red
     Pop-Location
@@ -17,18 +17,24 @@ if ($LASTEXITCODE -ne 0) {
 }
 Pop-Location
 
-# Find and register the MSIX package
-$appxPath = Join-Path $projectDir "bin\$platform\$configuration\net10.0-windows10.0.22621.0\win-$platform\AppX"
-$manifestPath = Join-Path $appxPath "AppxManifest.xml"
+# Find and launch the exe (in the win-x64 subfolder for self-contained builds)
+$exePath = Join-Path $projectDir "bin\$platform\$configuration\net10.0-windows10.0.22621.0\win-$platform\Screenshotter.Windows.exe"
 
-if (Test-Path $manifestPath) {
-    Write-Host "Registering package from: $appxPath" -ForegroundColor Yellow
-    Add-AppxPackage -Register $manifestPath -ForceApplicationShutdown
-    
-    # Launch the app
-    Write-Host "Launching Screenshotter..." -ForegroundColor Green
-    Start-Process "shell:AppsFolder\Screenshotter_h3c97v1z0qnmj!App"
-} else {
-    Write-Host "AppX manifest not found at: $manifestPath" -ForegroundColor Red
-    Write-Host "Try building with: dotnet build -c Debug" -ForegroundColor Yellow
+if (-not (Test-Path $exePath)) {
+    # Try path without win-x64 subfolder
+    $exePath = Join-Path $projectDir "bin\$platform\$configuration\net10.0-windows10.0.22621.0\Screenshotter.Windows.exe"
+}
+
+if (-not (Test-Path $exePath)) {
+    # Try alternate path without platform folder
+    $exePath = Join-Path $projectDir "bin\$configuration\net10.0-windows10.0.22621.0\Screenshotter.Windows.exe"
+}
+
+if (Test-Path $exePath) {
+    Write-Host "Launching Screenshotter from: $exePath" -ForegroundColor Green
+    Start-Process $exePath -WorkingDirectory (Split-Path $exePath)
+}
+else {
+    Write-Host "Exe not found at: $exePath" -ForegroundColor Red
+    Write-Host "Check the build output for the correct path." -ForegroundColor Yellow
 }
