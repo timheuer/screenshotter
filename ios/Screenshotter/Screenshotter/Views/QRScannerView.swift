@@ -1,5 +1,5 @@
 import SwiftUI
-import AVFoundation
+@preconcurrency import AVFoundation
 
 struct QRScannerView: View {
     @Binding var pairedIP: String
@@ -144,9 +144,10 @@ class QRCodeScannerViewController: UIViewController, AVCaptureMetadataOutputObje
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         hasScanned = false
-        if captureSession?.isRunning == false {
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                self?.captureSession?.startRunning()
+        let session = captureSession
+        if session?.isRunning == false {
+            DispatchQueue.global(qos: .userInitiated).async {
+                session?.startRunning()
             }
         }
     }
@@ -198,27 +199,30 @@ class QRCodeScannerViewController: UIViewController, AVCaptureMetadataOutputObje
                 view.layer.addSublayer(previewLayer)
             }
             
+            let session = captureSession
             DispatchQueue.global(qos: .userInitiated).async {
-                captureSession.startRunning()
+                session.startRunning()
             }
         } catch {
             return
         }
     }
     
-    func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
-        guard !hasScanned,
-              let metadataObject = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
+    nonisolated func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
+        guard let metadataObject = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
               metadataObject.type == .qr,
               let stringValue = metadataObject.stringValue else {
             return
         }
         
-        hasScanned = true
-        captureSession?.stopRunning()
-        
-        AudioServicesPlaySystemSound(SystemSoundID(kSystemSoundID_Vibrate))
-        onCodeScanned?(stringValue)
+        Task { @MainActor in
+            guard !hasScanned else { return }
+            hasScanned = true
+            captureSession?.stopRunning()
+            
+            AudioServicesPlaySystemSound(SystemSoundID(kSystemSoundID_Vibrate))
+            onCodeScanned?(stringValue)
+        }
     }
 }
 
