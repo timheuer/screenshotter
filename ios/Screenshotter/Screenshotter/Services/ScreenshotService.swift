@@ -1,10 +1,21 @@
 import UIKit
 import Photos
+import ImageIO
 
 actor ScreenshotService {
     static let shared = ScreenshotService()
     
     private init() {}
+    
+    /// App bundle identifier for metadata
+    private var appBundleId: String {
+        Bundle.main.bundleIdentifier ?? "com.timheuer.screenshotter"
+    }
+    
+    /// App name for metadata
+    private var appName: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Screenshotter"
+    }
     
     enum ScreenshotError: LocalizedError {
         case invalidURL
@@ -71,7 +82,7 @@ actor ScreenshotService {
         return image
     }
     
-    /// Saves an image to the Photos library
+    /// Saves an image to the Photos library with metadata identifying it as a remote screenshot
     /// - Parameter image: The image to save
     func saveToPhotos(_ image: UIImage) async throws {
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
@@ -80,11 +91,19 @@ actor ScreenshotService {
             throw ScreenshotError.photoLibraryAccessDenied
         }
         
+        // Embed metadata into the image
+        let imageDataWithMetadata = embedMetadata(in: image)
+        
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             PHPhotoLibrary.shared().performChanges {
                 let request = PHAssetCreationRequest.forAsset()
-                if let imageData = image.pngData() {
+                request.creationDate = Date()
+                
+                if let imageData = imageDataWithMetadata {
                     request.addResource(with: .photo, data: imageData, options: nil)
+                } else if let fallbackData = image.pngData() {
+                    // Fallback to PNG without metadata if embedding fails
+                    request.addResource(with: .photo, data: fallbackData, options: nil)
                 }
             } completionHandler: { success, error in
                 if success {
@@ -96,6 +115,55 @@ actor ScreenshotService {
                 }
             }
         }
+    }
+    
+    /// Embeds metadata into the image identifying it as a remote screenshot from this app
+    /// - Parameter image: The source image
+    /// - Returns: JPEG data with embedded EXIF/TIFF metadata, or nil if embedding fails
+    private func embedMetadata(in image: UIImage) -> Data? {
+        guard let cgImage = image.cgImage else { return nil }
+        
+        let mutableData = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            mutableData,
+            "public.jpeg" as CFString,
+            1,
+            nil
+        ) else { return nil }
+        
+        // Build metadata dictionary
+        let tiffMetadata: [String: Any] = [
+            kCGImagePropertyTIFFSoftware as String: "\(appName) (\(appBundleId))",
+            kCGImagePropertyTIFFArtist as String: appName,
+            kCGImagePropertyTIFFImageDescription as String: "Remote screenshot captured via \(appName)"
+        ]
+        
+        let exifMetadata: [String: Any] = [
+            kCGImagePropertyExifUserComment as String: "Remote screenshot captured from Windows PC via \(appName)",
+            kCGImagePropertyExifDateTimeOriginal as String: exifDateString(from: Date()),
+            kCGImagePropertyExifDateTimeDigitized as String: exifDateString(from: Date())
+        ]
+        
+        let metadata: [String: Any] = [
+            kCGImagePropertyTIFFDictionary as String: tiffMetadata,
+            kCGImagePropertyExifDictionary as String: exifMetadata
+        ]
+        
+        CGImageDestinationAddImage(destination, cgImage, metadata as CFDictionary)
+        
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        
+        return mutableData as Data
+    }
+    
+    /// Formats a date as an EXIF-compatible string
+    /// - Parameter date: The date to format
+    /// - Returns: EXIF date string in "yyyy:MM:dd HH:mm:ss" format
+    private func exifDateString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter.string(from: date)
     }
     
     /// Tests the connection to the screenshot server
