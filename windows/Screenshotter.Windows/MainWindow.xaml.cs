@@ -26,12 +26,19 @@ public sealed partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern bool GetCursorPos(out POINT lpPoint);
 
+    [DllImport("user32.dll")]
+    private static extern int GetDpiForWindow(IntPtr hwnd);
+
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT
     {
         public int X;
         public int Y;
     }
+
+    private IntPtr _hwnd;
+    private AppWindow? _appWindow;
+    private double _currentDpiScale = 1.0;
 
     public MainWindow()
     {
@@ -50,29 +57,65 @@ public sealed partial class MainWindow : Window
     private void ConfigureWindow()
     {
         // Get the AppWindow for this window
-        var hwnd = WindowNative.GetWindowHandle(this);
-        var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
-        var appWindow = AppWindow.GetFromWindowId(windowId);
+        _hwnd = WindowNative.GetWindowHandle(this);
+        var windowId = Win32Interop.GetWindowIdFromWindow(_hwnd);
+        _appWindow = AppWindow.GetFromWindowId(windowId);
 
         // Set the app icon
         var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "TrayIcon.png");
         if (File.Exists(iconPath))
         {
-            appWindow.SetIcon(iconPath);
+            _appWindow.SetIcon(iconPath);
         }
 
-        // Set fixed size
-        appWindow.Resize(new SizeInt32(WindowWidth, WindowHeight));
+        // Get current DPI and resize with proper scaling
+        UpdateDpiScale();
+        ResizeWindowForDpi();
+
+        // Subscribe to window changes to detect DPI changes when moving between monitors
+        _appWindow.Changed += AppWindow_Changed;
 
         // Disable resizing by using OverlappedPresenter
-        if (appWindow.Presenter is OverlappedPresenter presenter)
+        if (_appWindow.Presenter is OverlappedPresenter presenter)
         {
             presenter.IsResizable = false;
             presenter.IsMaximizable = false;
         }
 
         // Set title
-        appWindow.Title = "Screenshotter";
+        _appWindow.Title = "Screenshotter";
+    }
+
+    private void UpdateDpiScale()
+    {
+        var dpi = GetDpiForWindow(_hwnd);
+        _currentDpiScale = dpi > 0 ? dpi / 96.0 : 1.0; // 96 DPI is baseline, fallback to 1.0 if invalid
+    }
+
+    private void ResizeWindowForDpi()
+    {
+        if (_appWindow == null) return;
+
+        // Scale the window dimensions based on current DPI
+        var scaledWidth = (int)(WindowWidth * _currentDpiScale);
+        var scaledHeight = (int)(WindowHeight * _currentDpiScale);
+        _appWindow.Resize(new SizeInt32(scaledWidth, scaledHeight));
+    }
+
+    private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        // Check if the window moved (could be to a different monitor with different DPI)
+        if (args.DidPositionChange)
+        {
+            var previousDpiScale = _currentDpiScale;
+            UpdateDpiScale();
+
+            // Only resize if DPI actually changed (moved to different DPI monitor)
+            if (Math.Abs(previousDpiScale - _currentDpiScale) > 0.01)
+            {
+                ResizeWindowForDpi();
+            }
+        }
     }
 
     /// <summary>
@@ -80,29 +123,42 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public void PositionNearTray()
     {
-        var appWindow = AppWindow;
-        var displayArea = DisplayArea.GetFromWindowId(appWindow.Id, DisplayAreaFallback.Primary);
+        if (_appWindow == null) return;
+
+        var displayArea = DisplayArea.GetFromWindowId(_appWindow.Id, DisplayAreaFallback.Primary);
         if (displayArea == null) return;
 
         // Get cursor position (where user clicked the tray icon)
         GetCursorPos(out var cursorPos);
+
+        // Update DPI for the target display and resize if needed
+        var previousDpiScale = _currentDpiScale;
+        UpdateDpiScale();
+        if (Math.Abs(previousDpiScale - _currentDpiScale) > 0.01)
+        {
+            ResizeWindowForDpi();
+        }
+
+        // Calculate scaled dimensions for positioning
+        var scaledWidth = (int)(WindowWidth * _currentDpiScale);
+        var scaledHeight = (int)(WindowHeight * _currentDpiScale);
 
         // Calculate position: above the cursor, aligned to right edge of work area
         var workArea = displayArea.WorkArea;
         
         // Position window so it appears above the tray area
         // Typically tray is at bottom-right, so position window above and to the left of cursor
-        var x = Math.Min(cursorPos.X - (WindowWidth / 2), workArea.Width - WindowWidth + workArea.X);
+        var x = Math.Min(cursorPos.X - (scaledWidth / 2), workArea.Width - scaledWidth + workArea.X);
         x = Math.Max(x, workArea.X); // Don't go off left edge
         
-        var y = cursorPos.Y - WindowHeight - 10; // 10px padding above cursor
+        var y = cursorPos.Y - scaledHeight - 10; // 10px padding above cursor
         if (y < workArea.Y)
         {
             // If would go above screen, position below cursor instead
             y = cursorPos.Y + 10;
         }
 
-        appWindow.Move(new PointInt32(x, y));
+        _appWindow.Move(new PointInt32(x, y));
     }
 
     private void RefreshNetworkInfo()

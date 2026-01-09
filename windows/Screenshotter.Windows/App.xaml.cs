@@ -23,11 +23,15 @@ public partial class App : Application
         // Start the API server as a background task
         StartApiServer();
 
-        // Create the main window (but don't show it yet)
+        // Create the main window - must activate briefly to initialize WinUI properly
         _window = new MainWindow();
         _window.Closed += Window_Closed;
+        
+        // Activate window briefly to ensure message loop is running,
+        // then hide it. This prevents intermittent startup failures.
+        _window.Activate();
 
-        // Initialize system tray icon
+        // Initialize system tray icon after window is activated
         _trayIcon = new TrayIconService(
             onShowWindow: ShowWindow,
             onExit: Shutdown
@@ -36,8 +40,11 @@ public partial class App : Application
         // Force create the tray icon
         _trayIcon.ForceCreate();
 
+        // Now hide the window to tray
+        _window.AppWindow.Hide();
+
         // Show notification on startup
-        _trayIcon.ShowNotification("Screenshotter", "Running in system tray. Double-click to show QR code.");
+        _trayIcon.ShowNotification("Screenshotter", "Running in system tray. Click to show QR code.");
     }
 
     private void Window_Closed(object sender, WindowEventArgs args)

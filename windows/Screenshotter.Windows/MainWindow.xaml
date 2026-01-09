@@ -54,6 +54,13 @@
                            Text="Loading..."
                            VerticalAlignment="Center"
                            IsTextSelectionEnabled="True"/>
+                <Button x:Name="RefreshButton"
+                        Click="RefreshButton_Click"
+                        ToolTipService.ToolTip="Refresh IP"
+                        Padding="4"
+                        VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE72C;" FontSize="12"/>
+                </Button>
             </StackPanel>
 
             <!-- Port -->
@@ -82,13 +89,6 @@
 
             <MenuFlyoutSeparator Margin="0,8"/>
 
-            <!-- Refresh Button -->
-            <Button
-                x:Name="RefreshButton"
-                Content="🔄 Refresh IP"
-                HorizontalAlignment="Stretch"
-                Click="RefreshButton_Click"/>
-
             <!-- Hide to Tray Button -->
             <Button
                 x:Name="HideButton"
@@ -97,11 +97,16 @@
                 Click="HideButton_Click"/>
 
             <!-- Start with Windows Toggle -->
-            <ToggleSwitch
-                x:Name="StartupToggle"
-                Header="Start with Windows"
-                Toggled="StartupToggle_Toggled"
-                HorizontalAlignment="Center"/>
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Spacing="12">
+                <TextBlock Text="Start with Windows"
+                           VerticalAlignment="Center"/>
+                <ToggleSwitch
+                    x:Name="StartupToggle"
+                    Toggled="StartupToggle_Toggled"
+                    MinWidth="0"/>
+            </StackPanel>
 
             <TextBlock
                 Text="Close window to hide to system tray"
