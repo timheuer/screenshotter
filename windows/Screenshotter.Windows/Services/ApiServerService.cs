@@ -80,17 +80,25 @@ public static class ApiServerService
             try
             {
                 var monitorId = request.Query["monitor"].FirstOrDefault();
-                
-                // Check if "all" is requested but not allowed
-                if (monitorId?.Equals("all", StringComparison.OrdinalIgnoreCase) == true && 
-                    !MonitorSettingsService.AllowAll)
+
+                // Check if "all" is requested - redirect to separate capture endpoint
+                if (monitorId?.Equals("all", StringComparison.OrdinalIgnoreCase) == true)
                 {
-                    return Results.Problem("Capture all monitors is not allowed");
+                    if (!MonitorSettingsService.AllowAll)
+                    {
+                        return Results.Problem("Capture all monitors is not allowed");
+                    }
+                    // For backwards compatibility, return stitched image
+                    var allScreensBytes = ScreenshotService.CaptureAllScreens();
+                    if (allScreensBytes == null || allScreensBytes.Length == 0)
+                    {
+                        return Results.Problem("Failed to capture all screens");
+                    }
+                    return Results.File(allScreensBytes, "image/png", "screenshot_all.png");
                 }
 
                 // Check if specific monitor is allowed
-                if (!string.IsNullOrEmpty(monitorId) && 
-                    !monitorId.Equals("all", StringComparison.OrdinalIgnoreCase) &&
+                if (!string.IsNullOrEmpty(monitorId) &&
                     !MonitorSettingsService.IsMonitorAllowed(monitorId))
                 {
                     return Results.Problem($"Monitor {monitorId} is not allowed");
@@ -111,6 +119,40 @@ public static class ApiServerService
             }
         })
         .WithName("CaptureScreenshot")
+        .WithOpenApi();
+
+        // POST /api/screenshot/all-separate - Captures all monitors as separate images
+        // Returns JSON array with base64-encoded images
+        app.MapPost("/api/screenshot/all-separate", () =>
+        {
+            try
+            {
+                if (!MonitorSettingsService.AllowAll)
+                {
+                    return Results.Problem("Capture all monitors is not allowed");
+                }
+
+                var screenshots = ScreenshotService.CaptureAllMonitorsSeparately();
+
+                if (screenshots.Count == 0)
+                {
+                    return Results.Problem("Failed to capture any monitors");
+                }
+
+                var response = screenshots.Select(s => new SeparateScreenshotResponse(
+                    MonitorId: s.MonitorId,
+                    MonitorName: s.MonitorName,
+                    ImageBase64: Convert.ToBase64String(s.ImageData)
+                )).ToList();
+
+                return Results.Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Screenshot capture failed: {ex.Message}");
+            }
+        })
+        .WithName("CaptureAllSeparate")
         .WithOpenApi();
 
         // GET /api/health - Simple health check endpoint
@@ -138,12 +180,23 @@ public record MonitorsResponse(
 );
 
 /// <summary>
+/// Response model for individual screenshot in /api/screenshot/all-separate endpoint.
+/// </summary>
+public record SeparateScreenshotResponse(
+    string MonitorId,
+    string MonitorName,
+    string ImageBase64
+);
+
+/// <summary>
 /// JSON serialization context for API models (AOT compatible).
 /// </summary>
 [System.Text.Json.Serialization.JsonSerializable(typeof(ApiInfoResponse))]
 [System.Text.Json.Serialization.JsonSerializable(typeof(MonitorsResponse))]
 [System.Text.Json.Serialization.JsonSerializable(typeof(List<MonitorInfo>))]
 [System.Text.Json.Serialization.JsonSerializable(typeof(MonitorInfo))]
+[System.Text.Json.Serialization.JsonSerializable(typeof(List<SeparateScreenshotResponse>))]
+[System.Text.Json.Serialization.JsonSerializable(typeof(SeparateScreenshotResponse))]
 [System.Text.Json.Serialization.JsonSerializable(typeof(object))]
 public partial class ApiJsonContext : System.Text.Json.Serialization.JsonSerializerContext
 {

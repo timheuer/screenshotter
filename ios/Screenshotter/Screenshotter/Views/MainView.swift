@@ -197,16 +197,38 @@ struct MainView: View {
         
         Task {
             do {
-                let image = try await ScreenshotService.shared.captureScreenshot(
-                    baseURL: pairedIP,
-                    monitorId: monitorId
-                )
-                try await ScreenshotService.shared.saveToPhotos(image)
-                
-                await MainActor.run {
-                    lastScreenshot = image
-                    isCapturing = false
-                    showToast(message: "Screenshot saved!", isSuccess: true)
+                if monitorId == "all" {
+                    // Capture all monitors as separate images
+                    let screenshots = try await ScreenshotService.shared.captureAllMonitorsSeparately(
+                        baseURL: pairedIP
+                    )
+                    
+                    // Save each screenshot
+                    for (_, image) in screenshots {
+                        try await ScreenshotService.shared.saveToPhotos(image)
+                    }
+                    
+                    await MainActor.run {
+                        // Show the last captured image as preview
+                        if let lastImage = screenshots.last?.image {
+                            lastScreenshot = lastImage
+                        }
+                        isCapturing = false
+                        showToast(message: "\(screenshots.count) screenshots saved!", isSuccess: true)
+                    }
+                } else {
+                    // Capture single monitor
+                    let image = try await ScreenshotService.shared.captureScreenshot(
+                        baseURL: pairedIP,
+                        monitorId: monitorId
+                    )
+                    try await ScreenshotService.shared.saveToPhotos(image)
+                    
+                    await MainActor.run {
+                        lastScreenshot = image
+                        isCapturing = false
+                        showToast(message: "Screenshot saved!", isSuccess: true)
+                    }
                 }
             } catch {
                 await MainActor.run {

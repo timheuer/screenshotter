@@ -20,20 +20,30 @@ public record MonitorInfo(
 );
 
 /// <summary>
+/// Represents a captured screenshot with monitor info.
+/// </summary>
+public record ScreenshotResult(
+    string MonitorId,
+    string MonitorName,
+    byte[] ImageData
+);
+
+/// <summary>
 /// Service for capturing screenshots using System.Drawing.
-/// Note: WinUI 3 apps already have per-monitor DPI awareness configured via the app manifest.
-/// Do NOT call SetProcessDPIAware() as it conflicts with WinUI's DPI handling.
+/// Uses per-monitor DPI awareness for accurate capture.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public static class ScreenshotService
 {
     private static readonly List<MonitorData> _monitors = [];
+    private static bool _dpiAwarenessSet = false;
 
     /// <summary>
     /// Gets information about all connected monitors.
     /// </summary>
     public static List<MonitorInfo> GetMonitors()
     {
+        EnsureDpiAwareness();
         _monitors.Clear();
 
         EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, MonitorEnumCallback, IntPtr.Zero);
@@ -43,10 +53,10 @@ public static class ScreenshotService
         {
             var monitor = _monitors[i];
             var bounds = monitor.Bounds;
-            
+
             // Try to get a friendly name
             var friendlyName = GetMonitorFriendlyName(monitor.Handle) ?? $"Display {i + 1}";
-            
+
             result.Add(new MonitorInfo(
                 Id: i.ToString(),
                 Name: monitor.IsPrimary ? $"{friendlyName} (Primary)" : friendlyName,
@@ -62,12 +72,42 @@ public static class ScreenshotService
     }
 
     /// <summary>
+    /// Ensures DPI awareness is set for accurate screen capture.
+    /// </summary>
+    private static void EnsureDpiAwareness()
+    {
+        if (_dpiAwarenessSet) return;
+
+        try
+        {
+            // Set per-monitor DPI awareness for accurate coordinate mapping
+            SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+            _dpiAwarenessSet = true;
+        }
+        catch
+        {
+            // Fallback for older Windows versions
+            try
+            {
+                SetProcessDPIAware();
+                _dpiAwarenessSet = true;
+            }
+            catch
+            {
+                // Ignore - DPI awareness might already be set
+            }
+        }
+    }
+
+    /// <summary>
     /// Captures a specific monitor by ID, or the primary monitor if no ID specified.
     /// </summary>
     /// <param name="monitorId">Monitor ID (index as string), or null for primary.</param>
     /// <returns>PNG image as byte array, or null if capture fails.</returns>
     public static byte[]? CaptureMonitor(string? monitorId)
     {
+        EnsureDpiAwareness();
+
         // Refresh monitor list
         var monitors = GetMonitors();
 
@@ -82,7 +122,7 @@ public static class ScreenshotService
         }
         else if (monitorId.Equals("all", StringComparison.OrdinalIgnoreCase))
         {
-            // Capture all screens
+            // Capture all screens as single stitched image
             return CaptureAllScreens();
         }
         else if (int.TryParse(monitorId, out int index) && index >= 0 && index < _monitors.Count)
@@ -99,6 +139,36 @@ public static class ScreenshotService
     }
 
     /// <summary>
+    /// Captures all monitors as separate images.
+    /// </summary>
+    /// <returns>List of screenshot results, one per monitor.</returns>
+    public static List<ScreenshotResult> CaptureAllMonitorsSeparately()
+    {
+        EnsureDpiAwareness();
+
+        var monitors = GetMonitors();
+        var results = new List<ScreenshotResult>();
+
+        for (int i = 0; i < _monitors.Count; i++)
+        {
+            var monitor = _monitors[i];
+            var monitorInfo = monitors[i];
+            var imageData = CaptureRegion(monitor.Bounds);
+
+            if (imageData != null)
+            {
+                results.Add(new ScreenshotResult(
+                    MonitorId: monitorInfo.Id,
+                    MonitorName: monitorInfo.Name,
+                    ImageData: imageData
+                ));
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
     /// Captures the primary screen and returns it as a PNG byte array.
     /// </summary>
     /// <returns>PNG image as byte array, or null if capture fails.</returns>
@@ -112,6 +182,8 @@ public static class ScreenshotService
     /// </summary>
     private static byte[]? CaptureRegion(Rectangle bounds)
     {
+        EnsureDpiAwareness();
+
         try
         {
             if (bounds.Width <= 0 || bounds.Height <= 0)
@@ -173,6 +245,8 @@ public static class ScreenshotService
     /// </summary>
     public static byte[]? CaptureAllScreens()
     {
+        EnsureDpiAwareness();
+
         try
         {
             int x = GetSystemMetrics(SM_XVIRTUALSCREEN);
@@ -212,6 +286,9 @@ public static class ScreenshotService
     private const int MONITOR_DEFAULTTOPRIMARY = 1;
     private const int MONITORINFOF_PRIMARY = 1;
 
+    // DPI awareness constants
+    private static readonly IntPtr DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = new(-4);
+
     private delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData);
 
     [DllImport("user32.dll")]
@@ -228,6 +305,12 @@ public static class ScreenshotService
 
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern bool EnumDisplayDevices(string? lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetProcessDPIAware();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetProcessDpiAwarenessContext(IntPtr value);
 
     private static bool MonitorEnumCallback(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData)
     {

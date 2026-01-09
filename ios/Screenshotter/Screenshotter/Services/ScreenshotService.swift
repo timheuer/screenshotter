@@ -125,6 +125,55 @@ actor ScreenshotService {
         return image
     }
     
+    /// Captures all monitors as separate images from the Windows PC
+    /// - Parameter baseURL: The base URL of the screenshot server
+    /// - Returns: Array of tuples containing monitor name and captured image
+    func captureAllMonitorsSeparately(baseURL: String) async throws -> [(name: String, image: UIImage)] {
+        guard let url = URL(string: "\(baseURL)/api/screenshot/all-separate") else {
+            throw ScreenshotError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 60 // Allow more time for multiple captures
+        
+        let data: Data
+        let response: URLResponse
+        
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw ScreenshotError.networkError(error)
+        }
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ScreenshotError.invalidResponse
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw ScreenshotError.serverError(httpResponse.statusCode)
+        }
+        
+        let decoder = JSONDecoder()
+        let screenshots = try decoder.decode([SeparateScreenshotResponse].self, from: data)
+        
+        var results: [(name: String, image: UIImage)] = []
+        
+        for screenshot in screenshots {
+            guard let imageData = Data(base64Encoded: screenshot.imageBase64),
+                  let image = UIImage(data: imageData) else {
+                continue // Skip invalid images
+            }
+            results.append((name: screenshot.monitorName, image: image))
+        }
+        
+        if results.isEmpty {
+            throw ScreenshotError.invalidImageData
+        }
+        
+        return results
+    }
+    
     /// Saves an image to the Photos library with metadata identifying it as a remote screenshot
     /// - Parameter image: The image to save
     func saveToPhotos(_ image: UIImage) async throws {

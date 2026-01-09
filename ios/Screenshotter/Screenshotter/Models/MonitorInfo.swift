@@ -21,3 +21,10 @@ struct MonitorsResponse: Codable {
     let monitors: [MonitorInfo]
     let allowCaptureAll: Bool
 }
+
+/// Response item from /api/screenshot/all-separate endpoint
+struct SeparateScreenshotResponse: Codable {
+    let monitorId: String
+    let monitorName: String
+    let imageBase64: String
+}
