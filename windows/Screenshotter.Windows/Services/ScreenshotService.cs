@@ -30,71 +30,54 @@ public record ScreenshotResult(
 
 /// <summary>
 /// Service for capturing screenshots using System.Drawing.
-/// Uses per-monitor DPI awareness for accurate capture.
+/// Uses thread-level DPI awareness for accurate capture without affecting the WinUI window.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public static class ScreenshotService
 {
     private static readonly List<MonitorData> _monitors = [];
-    private static bool _dpiAwarenessSet = false;
 
     /// <summary>
     /// Gets information about all connected monitors.
     /// </summary>
     public static List<MonitorInfo> GetMonitors()
     {
-        EnsureDpiAwareness();
-        _monitors.Clear();
-
-        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, MonitorEnumCallback, IntPtr.Zero);
-
-        var result = new List<MonitorInfo>();
-        for (int i = 0; i < _monitors.Count; i++)
-        {
-            var monitor = _monitors[i];
-            var bounds = monitor.Bounds;
-
-            // Try to get a friendly name
-            var friendlyName = GetMonitorFriendlyName(monitor.Handle) ?? $"Display {i + 1}";
-
-            result.Add(new MonitorInfo(
-                Id: i.ToString(),
-                Name: monitor.IsPrimary ? $"{friendlyName} (Primary)" : friendlyName,
-                Width: bounds.Width,
-                Height: bounds.Height,
-                X: bounds.X,
-                Y: bounds.Y,
-                IsPrimary: monitor.IsPrimary
-            ));
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Ensures DPI awareness is set for accurate screen capture.
-    /// </summary>
-    private static void EnsureDpiAwareness()
-    {
-        if (_dpiAwarenessSet) return;
-
+        // Use thread-level DPI awareness for accurate monitor enumeration
+        var previousContext = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         try
         {
-            // Set per-monitor DPI awareness for accurate coordinate mapping
-            SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-            _dpiAwarenessSet = true;
-        }
-        catch
-        {
-            // Fallback for older Windows versions
-            try
+            _monitors.Clear();
+
+            EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, MonitorEnumCallback, IntPtr.Zero);
+
+            var result = new List<MonitorInfo>();
+            for (int i = 0; i < _monitors.Count; i++)
             {
-                SetProcessDPIAware();
-                _dpiAwarenessSet = true;
+                var monitor = _monitors[i];
+                var bounds = monitor.Bounds;
+
+                // Try to get a friendly name
+                var friendlyName = GetMonitorFriendlyName(monitor.Handle) ?? $"Display {i + 1}";
+
+                result.Add(new MonitorInfo(
+                    Id: i.ToString(),
+                    Name: monitor.IsPrimary ? $"{friendlyName} (Primary)" : friendlyName,
+                    Width: bounds.Width,
+                    Height: bounds.Height,
+                    X: bounds.X,
+                    Y: bounds.Y,
+                    IsPrimary: monitor.IsPrimary
+                ));
             }
-            catch
+
+            return result;
+        }
+        finally
+        {
+            // Restore previous DPI awareness context
+            if (previousContext != IntPtr.Zero)
             {
-                // Ignore - DPI awareness might already be set
+                SetThreadDpiAwarenessContext(previousContext);
             }
         }
     }
@@ -106,36 +89,48 @@ public static class ScreenshotService
     /// <returns>PNG image as byte array, or null if capture fails.</returns>
     public static byte[]? CaptureMonitor(string? monitorId)
     {
-        EnsureDpiAwareness();
-
-        // Refresh monitor list
-        var monitors = GetMonitors();
-
-        Rectangle bounds;
-
-        if (string.IsNullOrEmpty(monitorId))
+        // Use thread-level DPI awareness for accurate capture
+        var previousContext = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        try
         {
-            // Default to primary monitor
-            var primaryIndex = _monitors.FindIndex(m => m.IsPrimary);
-            if (primaryIndex < 0) primaryIndex = 0;
-            bounds = _monitors[primaryIndex].Bounds;
-        }
-        else if (monitorId.Equals("all", StringComparison.OrdinalIgnoreCase))
-        {
-            // Capture all screens as single stitched image
-            return CaptureAllScreens();
-        }
-        else if (int.TryParse(monitorId, out int index) && index >= 0 && index < _monitors.Count)
-        {
-            bounds = _monitors[index].Bounds;
-        }
-        else
-        {
-            System.Diagnostics.Debug.WriteLine($"Invalid monitor ID: {monitorId}");
-            return null;
-        }
+            // Refresh monitor list (already uses thread DPI awareness internally)
+            _monitors.Clear();
+            EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, MonitorEnumCallback, IntPtr.Zero);
 
-        return CaptureRegion(bounds);
+            Rectangle bounds;
+
+            if (string.IsNullOrEmpty(monitorId))
+            {
+                // Default to primary monitor
+                var primaryIndex = _monitors.FindIndex(m => m.IsPrimary);
+                if (primaryIndex < 0) primaryIndex = 0;
+                if (_monitors.Count == 0) return null;
+                bounds = _monitors[primaryIndex].Bounds;
+            }
+            else if (monitorId.Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                // Capture all screens as single stitched image
+                return CaptureAllScreensInternal();
+            }
+            else if (int.TryParse(monitorId, out int index) && index >= 0 && index < _monitors.Count)
+            {
+                bounds = _monitors[index].Bounds;
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"Invalid monitor ID: {monitorId}");
+                return null;
+            }
+
+            return CaptureRegionInternal(bounds);
+        }
+        finally
+        {
+            if (previousContext != IntPtr.Zero)
+            {
+                SetThreadDpiAwarenessContext(previousContext);
+            }
+        }
     }
 
     /// <summary>
@@ -144,28 +139,38 @@ public static class ScreenshotService
     /// <returns>List of screenshot results, one per monitor.</returns>
     public static List<ScreenshotResult> CaptureAllMonitorsSeparately()
     {
-        EnsureDpiAwareness();
-
-        var monitors = GetMonitors();
-        var results = new List<ScreenshotResult>();
-
-        for (int i = 0; i < _monitors.Count; i++)
+        // Use thread-level DPI awareness for accurate capture
+        var previousContext = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        try
         {
-            var monitor = _monitors[i];
-            var monitorInfo = monitors[i];
-            var imageData = CaptureRegion(monitor.Bounds);
+            var monitors = GetMonitors();
+            var results = new List<ScreenshotResult>();
 
-            if (imageData != null)
+            for (int i = 0; i < _monitors.Count; i++)
             {
-                results.Add(new ScreenshotResult(
-                    MonitorId: monitorInfo.Id,
-                    MonitorName: monitorInfo.Name,
-                    ImageData: imageData
-                ));
+                var monitor = _monitors[i];
+                var monitorInfo = monitors[i];
+                var imageData = CaptureRegionInternal(monitor.Bounds);
+
+                if (imageData != null)
+                {
+                    results.Add(new ScreenshotResult(
+                        MonitorId: monitorInfo.Id,
+                        MonitorName: monitorInfo.Name,
+                        ImageData: imageData
+                    ));
+                }
+            }
+
+            return results;
+        }
+        finally
+        {
+            if (previousContext != IntPtr.Zero)
+            {
+                SetThreadDpiAwarenessContext(previousContext);
             }
         }
-
-        return results;
     }
 
     /// <summary>
@@ -179,11 +184,10 @@ public static class ScreenshotService
 
     /// <summary>
     /// Captures a specific screen region and returns it as a PNG byte array.
+    /// Must be called with thread DPI awareness already set.
     /// </summary>
-    private static byte[]? CaptureRegion(Rectangle bounds)
+    private static byte[]? CaptureRegionInternal(Rectangle bounds)
     {
-        EnsureDpiAwareness();
-
         try
         {
             if (bounds.Width <= 0 || bounds.Height <= 0)
@@ -245,8 +249,27 @@ public static class ScreenshotService
     /// </summary>
     public static byte[]? CaptureAllScreens()
     {
-        EnsureDpiAwareness();
+        // Use thread-level DPI awareness for accurate capture
+        var previousContext = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        try
+        {
+            return CaptureAllScreensInternal();
+        }
+        finally
+        {
+            if (previousContext != IntPtr.Zero)
+            {
+                SetThreadDpiAwarenessContext(previousContext);
+            }
+        }
+    }
 
+    /// <summary>
+    /// Captures all screens (virtual screen) and returns as PNG byte array.
+    /// Must be called with thread DPI awareness already set.
+    /// </summary>
+    private static byte[]? CaptureAllScreensInternal()
+    {
         try
         {
             int x = GetSystemMetrics(SM_XVIRTUALSCREEN);
@@ -306,11 +329,8 @@ public static class ScreenshotService
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern bool EnumDisplayDevices(string? lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
 
-    [DllImport("user32.dll")]
-    private static extern bool SetProcessDPIAware();
-
     [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetProcessDpiAwarenessContext(IntPtr value);
+    private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);
 
     private static bool MonitorEnumCallback(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData)
     {
