@@ -7,15 +7,95 @@ using System.Runtime.Versioning;
 namespace Screenshotter.Windows.Services;
 
 /// <summary>
+/// Information about a display monitor.
+/// </summary>
+public record MonitorInfo(
+    string Id,
+    string Name,
+    int Width,
+    int Height,
+    int X,
+    int Y,
+    bool IsPrimary
+);
+
+/// <summary>
 /// Service for capturing screenshots using System.Drawing.
+/// Note: WinUI 3 apps already have per-monitor DPI awareness configured via the app manifest.
+/// Do NOT call SetProcessDPIAware() as it conflicts with WinUI's DPI handling.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public static class ScreenshotService
 {
-    static ScreenshotService()
+    private static readonly List<MonitorData> _monitors = [];
+
+    /// <summary>
+    /// Gets information about all connected monitors.
+    /// </summary>
+    public static List<MonitorInfo> GetMonitors()
     {
-        // Enable per-monitor DPI awareness for accurate screen capture
-        SetProcessDPIAware();
+        _monitors.Clear();
+
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, MonitorEnumCallback, IntPtr.Zero);
+
+        var result = new List<MonitorInfo>();
+        for (int i = 0; i < _monitors.Count; i++)
+        {
+            var monitor = _monitors[i];
+            var bounds = monitor.Bounds;
+            
+            // Try to get a friendly name
+            var friendlyName = GetMonitorFriendlyName(monitor.Handle) ?? $"Display {i + 1}";
+            
+            result.Add(new MonitorInfo(
+                Id: i.ToString(),
+                Name: monitor.IsPrimary ? $"{friendlyName} (Primary)" : friendlyName,
+                Width: bounds.Width,
+                Height: bounds.Height,
+                X: bounds.X,
+                Y: bounds.Y,
+                IsPrimary: monitor.IsPrimary
+            ));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Captures a specific monitor by ID, or the primary monitor if no ID specified.
+    /// </summary>
+    /// <param name="monitorId">Monitor ID (index as string), or null for primary.</param>
+    /// <returns>PNG image as byte array, or null if capture fails.</returns>
+    public static byte[]? CaptureMonitor(string? monitorId)
+    {
+        // Refresh monitor list
+        var monitors = GetMonitors();
+
+        Rectangle bounds;
+
+        if (string.IsNullOrEmpty(monitorId))
+        {
+            // Default to primary monitor
+            var primaryIndex = _monitors.FindIndex(m => m.IsPrimary);
+            if (primaryIndex < 0) primaryIndex = 0;
+            bounds = _monitors[primaryIndex].Bounds;
+        }
+        else if (monitorId.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            // Capture all screens
+            return CaptureAllScreens();
+        }
+        else if (int.TryParse(monitorId, out int index) && index >= 0 && index < _monitors.Count)
+        {
+            bounds = _monitors[index].Bounds;
+        }
+        else
+        {
+            System.Diagnostics.Debug.WriteLine($"Invalid monitor ID: {monitorId}");
+            return null;
+        }
+
+        return CaptureRegion(bounds);
     }
 
     /// <summary>
@@ -24,34 +104,36 @@ public static class ScreenshotService
     /// <returns>PNG image as byte array, or null if capture fails.</returns>
     public static byte[]? CaptureScreen()
     {
+        return CaptureMonitor(null);
+    }
+
+    /// <summary>
+    /// Captures a specific screen region and returns it as a PNG byte array.
+    /// </summary>
+    private static byte[]? CaptureRegion(Rectangle bounds)
+    {
         try
         {
-            // Get primary screen bounds in physical pixels
-            var screenBounds = GetPrimaryScreenBounds();
-
-            if (screenBounds.Width <= 0 || screenBounds.Height <= 0)
+            if (bounds.Width <= 0 || bounds.Height <= 0)
             {
                 System.Diagnostics.Debug.WriteLine("Invalid screen bounds");
                 return null;
             }
 
-            System.Diagnostics.Debug.WriteLine($"Capturing screen: {screenBounds.Width}x{screenBounds.Height}");
+            System.Diagnostics.Debug.WriteLine($"Capturing region: {bounds.Width}x{bounds.Height} at ({bounds.X},{bounds.Y})");
 
-            // Create bitmap to hold the screenshot
-            using var bitmap = new Bitmap(screenBounds.Width, screenBounds.Height, PixelFormat.Format32bppArgb);
+            using var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
             using var graphics = Graphics.FromImage(bitmap);
 
-            // Capture the screen
             graphics.CopyFromScreen(
-                screenBounds.X,
-                screenBounds.Y,
+                bounds.X,
+                bounds.Y,
                 0,
                 0,
-                screenBounds.Size,
+                bounds.Size,
                 CopyPixelOperation.SourceCopy
             );
 
-            // Convert to PNG byte array
             using var stream = new MemoryStream();
             bitmap.Save(stream, ImageFormat.Png);
             return stream.ToArray();
@@ -71,8 +153,8 @@ public static class ScreenshotService
         // Get the primary monitor handle
         var hMonitor = MonitorFromPoint(new POINT { x = 0, y = 0 }, MONITOR_DEFAULTTOPRIMARY);
 
-        var monitorInfo = new MONITORINFO();
-        monitorInfo.cbSize = Marshal.SizeOf<MONITORINFO>();
+        var monitorInfo = new MONITORINFOEX();
+        monitorInfo.cbSize = Marshal.SizeOf<MONITORINFOEX>();
 
         if (GetMonitorInfo(hMonitor, ref monitorInfo))
         {
@@ -128,18 +210,81 @@ public static class ScreenshotService
     private const int SM_CXVIRTUALSCREEN = 78;
     private const int SM_CYVIRTUALSCREEN = 79;
     private const int MONITOR_DEFAULTTOPRIMARY = 1;
+    private const int MONITORINFOF_PRIMARY = 1;
+
+    private delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData);
 
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int nIndex);
 
     [DllImport("user32.dll")]
-    private static extern bool SetProcessDPIAware();
-
-    [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromPoint(POINT pt, int dwFlags);
 
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFOEX lpmi);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr lprcClip, MonitorEnumProc lpfnEnum, IntPtr dwData);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern bool EnumDisplayDevices(string? lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
+
+    private static bool MonitorEnumCallback(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData)
+    {
+        var monitorInfo = new MONITORINFOEX();
+        monitorInfo.cbSize = Marshal.SizeOf<MONITORINFOEX>();
+
+        if (GetMonitorInfo(hMonitor, ref monitorInfo))
+        {
+            var rect = monitorInfo.rcMonitor;
+            var bounds = new Rectangle(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top);
+            var isPrimary = (monitorInfo.dwFlags & MONITORINFOF_PRIMARY) != 0;
+
+            _monitors.Add(new MonitorData(hMonitor, bounds, isPrimary, monitorInfo.szDevice));
+        }
+
+        return true; // Continue enumeration
+    }
+
+    private static string? GetMonitorFriendlyName(IntPtr hMonitor)
+    {
+        try
+        {
+            var monitorInfo = new MONITORINFOEX();
+            monitorInfo.cbSize = Marshal.SizeOf<MONITORINFOEX>();
+
+            if (!GetMonitorInfo(hMonitor, ref monitorInfo))
+                return null;
+
+            var deviceName = monitorInfo.szDevice;
+
+            // Try to get the friendly name from EnumDisplayDevices
+            var displayDevice = new DISPLAY_DEVICE();
+            displayDevice.cb = Marshal.SizeOf<DISPLAY_DEVICE>();
+
+            uint deviceIndex = 0;
+            while (EnumDisplayDevices(deviceName, deviceIndex, ref displayDevice, 0))
+            {
+                if (!string.IsNullOrEmpty(displayDevice.DeviceString))
+                {
+                    return displayDevice.DeviceString;
+                }
+                deviceIndex++;
+            }
+
+            // Fallback: return the device name without the \\.\\ prefix
+            if (deviceName.StartsWith(@"\\.\"))
+            {
+                return deviceName[4..];
+            }
+
+            return deviceName;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT
@@ -158,13 +303,32 @@ public static class ScreenshotService
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
-    private struct MONITORINFO
+    private struct MONITORINFOEX
     {
         public int cbSize;
         public RECT rcMonitor;
         public RECT rcWork;
         public uint dwFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string szDevice;
     }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct DISPLAY_DEVICE
+    {
+        public int cb;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string DeviceName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string DeviceString;
+        public uint StateFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string DeviceID;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string DeviceKey;
+    }
+
+    private record MonitorData(IntPtr Handle, Rectangle Bounds, bool IsPrimary, string DeviceName);
 
     #endregion
 }

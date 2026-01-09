@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI;
@@ -13,6 +15,32 @@ using WinRT.Interop;
 namespace Screenshotter.Windows;
 
 /// <summary>
+/// View model for monitor selection in the UI.
+/// </summary>
+public class MonitorViewModel : INotifyPropertyChanged
+{
+    private bool _isAllowed = true;
+
+    public required string Id { get; init; }
+    public required string DisplayName { get; init; }
+    
+    public bool IsAllowed
+    {
+        get => _isAllowed;
+        set
+        {
+            if (_isAllowed != value)
+            {
+                _isAllowed = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAllowed)));
+            }
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
+
+/// <summary>
 /// Main window displaying QR code and server status.
 /// </summary>
 public sealed partial class MainWindow : Window
@@ -21,7 +49,7 @@ public sealed partial class MainWindow : Window
     private const string StartupRegistryKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
     private const int ApiPort = 5000;
     private const int WindowWidth = 380;
-    private const int WindowHeight = 700;
+    private const int WindowHeight = 820;
 
     [DllImport("user32.dll")]
     private static extern bool GetCursorPos(out POINT lpPoint);
@@ -39,6 +67,7 @@ public sealed partial class MainWindow : Window
     private IntPtr _hwnd;
     private AppWindow? _appWindow;
     private double _currentDpiScale = 1.0;
+    private readonly ObservableCollection<MonitorViewModel> _monitorViewModels = [];
 
     public MainWindow()
     {
@@ -49,6 +78,9 @@ public sealed partial class MainWindow : Window
 
         // Load initial state
         LoadStartupSetting();
+
+        // Initialize monitor list
+        RefreshMonitorList();
 
         // Refresh IP and QR code
         RefreshNetworkInfo();
@@ -253,6 +285,7 @@ public sealed partial class MainWindow : Window
     private void RefreshButton_Click(object sender, RoutedEventArgs e)
     {
         RefreshNetworkInfo();
+        RefreshMonitorList();
     }
 
     private void HideButton_Click(object sender, RoutedEventArgs e)
@@ -263,5 +296,57 @@ public sealed partial class MainWindow : Window
     private void StartupToggle_Toggled(object sender, RoutedEventArgs e)
     {
         SetStartupSetting(StartupToggle.IsOn);
+    }
+
+    private void RefreshMonitorList()
+    {
+        var monitors = ScreenshotService.GetMonitors();
+        
+        // Initialize settings service with all monitors
+        MonitorSettingsService.InitializeWithMonitors(monitors);
+
+        // Update view models
+        _monitorViewModels.Clear();
+        foreach (var monitor in monitors)
+        {
+            _monitorViewModels.Add(new MonitorViewModel
+            {
+                Id = monitor.Id,
+                DisplayName = $"{monitor.Name} ({monitor.Width}x{monitor.Height})",
+                IsAllowed = MonitorSettingsService.IsMonitorAllowed(monitor.Id)
+            });
+        }
+
+        // Guard against null during initialization
+        if (MonitorList != null)
+        {
+            MonitorList.ItemsSource = _monitorViewModels;
+        }
+        
+        UpdateMonitorListVisibility();
+    }
+
+    private void UpdateMonitorListVisibility()
+    {
+        // Guard against null during initialization
+        if (MonitorList == null || AllowAllToggle == null) return;
+        
+        // Hide individual monitor list when "Allow All" is enabled
+        MonitorList.Visibility = AllowAllToggle.IsOn ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void AllowAllToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        MonitorSettingsService.AllowAll = AllowAllToggle.IsOn;
+        UpdateMonitorListVisibility();
+    }
+
+    private void MonitorCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        // Sync the UI state to the settings service
+        foreach (var vm in _monitorViewModels)
+        {
+            MonitorSettingsService.SetMonitorAllowed(vm.Id, vm.IsAllowed);
+        }
     }
 }

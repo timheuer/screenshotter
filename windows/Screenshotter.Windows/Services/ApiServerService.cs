@@ -56,12 +56,47 @@ public static class ApiServerService
         .WithName("GetInfo")
         .WithOpenApi();
 
-        // POST /api/screenshot - Captures and returns screenshot
-        app.MapPost("/api/screenshot", () =>
+        // GET /api/monitors - Returns list of allowed monitors
+        app.MapGet("/api/monitors", () =>
         {
             try
             {
-                var screenshotBytes = ScreenshotService.CaptureScreen();
+                var monitors = MonitorSettingsService.GetAllowedMonitors();
+                var allowAll = MonitorSettingsService.AllowAll;
+                return Results.Ok(new MonitorsResponse(monitors, allowAll));
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Failed to enumerate monitors: {ex.Message}");
+            }
+        })
+        .WithName("GetMonitors")
+        .WithOpenApi();
+
+        // POST /api/screenshot - Captures and returns screenshot
+        // Optional query param: ?monitor={id} where id is monitor index, or "all" for all screens
+        app.MapPost("/api/screenshot", (HttpRequest request) =>
+        {
+            try
+            {
+                var monitorId = request.Query["monitor"].FirstOrDefault();
+                
+                // Check if "all" is requested but not allowed
+                if (monitorId?.Equals("all", StringComparison.OrdinalIgnoreCase) == true && 
+                    !MonitorSettingsService.AllowAll)
+                {
+                    return Results.Problem("Capture all monitors is not allowed");
+                }
+
+                // Check if specific monitor is allowed
+                if (!string.IsNullOrEmpty(monitorId) && 
+                    !monitorId.Equals("all", StringComparison.OrdinalIgnoreCase) &&
+                    !MonitorSettingsService.IsMonitorAllowed(monitorId))
+                {
+                    return Results.Problem($"Monitor {monitorId} is not allowed");
+                }
+
+                var screenshotBytes = ScreenshotService.CaptureMonitor(monitorId);
 
                 if (screenshotBytes == null || screenshotBytes.Length == 0)
                 {
@@ -95,9 +130,20 @@ public record ApiInfoResponse(
 );
 
 /// <summary>
+/// Response model for the /api/monitors endpoint.
+/// </summary>
+public record MonitorsResponse(
+    List<MonitorInfo> Monitors,
+    bool AllowCaptureAll
+);
+
+/// <summary>
 /// JSON serialization context for API models (AOT compatible).
 /// </summary>
 [System.Text.Json.Serialization.JsonSerializable(typeof(ApiInfoResponse))]
+[System.Text.Json.Serialization.JsonSerializable(typeof(MonitorsResponse))]
+[System.Text.Json.Serialization.JsonSerializable(typeof(List<MonitorInfo>))]
+[System.Text.Json.Serialization.JsonSerializable(typeof(MonitorInfo))]
 [System.Text.Json.Serialization.JsonSerializable(typeof(object))]
 public partial class ApiJsonContext : System.Text.Json.Serialization.JsonSerializerContext
 {

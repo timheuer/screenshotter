@@ -89,6 +89,43 @@
 
             <MenuFlyoutSeparator Margin="0,8"/>
 
+            <!-- Monitor Selection Section -->
+            <TextBlock
+                Text="Allowed Monitors"
+                FontWeight="SemiBold"
+                HorizontalAlignment="Center"/>
+            
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Spacing="12">
+                <TextBlock Text="Allow all monitors"
+                           VerticalAlignment="Center"/>
+                <ToggleSwitch
+                    x:Name="AllowAllToggle"
+                    IsOn="True"
+                    Toggled="AllowAllToggle_Toggled"
+                    MinWidth="0"/>
+            </StackPanel>
+
+            <!-- Individual monitor list (shown when Allow All is off) -->
+            <ItemsRepeater x:Name="MonitorList"
+                           HorizontalAlignment="Center">
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" 
+                                    Spacing="8" 
+                                    Margin="0,4">
+                            <CheckBox IsChecked="{Binding IsAllowed, Mode=TwoWay}"
+                                      Content="{Binding DisplayName}"
+                                      Checked="MonitorCheckBox_Changed"
+                                      Unchecked="MonitorCheckBox_Changed"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+
+            <MenuFlyoutSeparator Margin="0,8"/>
+
             <!-- Hide to Tray Button -->
             <Button
                 x:Name="HideButton"
