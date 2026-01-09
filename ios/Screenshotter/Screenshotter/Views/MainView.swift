@@ -10,10 +10,27 @@ struct MainView: View {
     @State private var toastMessage = ""
     @State private var toastIsSuccess = true
     
+    /// Returns the display name for the selected monitor
+    private var selectedMonitorName: String {
+        if let selectedId = connectionManager.selectedMonitorId {
+            if selectedId == "all" {
+                return "All Monitors"
+            }
+            return connectionManager.monitors.first { $0.id == selectedId }?.name ?? "Unknown"
+        }
+        // Default to primary monitor
+        return connectionManager.monitors.first { $0.isPrimary }?.name ?? "Primary"
+    }
+    
+    /// Whether to show the monitor picker (more than one option available)
+    private var showMonitorPicker: Bool {
+        connectionManager.monitors.count > 1 || connectionManager.allowCaptureAll
+    }
+    
     var body: some View {
         NavigationStack {
             ZStack {
-                VStack(spacing: 30) {
+                VStack(spacing: 24) {
                     // Connection Status
                     HStack(spacing: 8) {
                         Circle()
@@ -25,6 +42,59 @@ struct MainView: View {
                             .foregroundColor(.secondary)
                     }
                     .padding(.top, 20)
+                    
+                    // Monitor Picker (only show if multiple monitors available)
+                    if showMonitorPicker && connectionManager.isConnected {
+                        VStack(spacing: 8) {
+                            Text("Monitor")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Menu {
+                                // Individual monitors
+                                ForEach(connectionManager.monitors) { monitor in
+                                    Button(action: {
+                                        connectionManager.selectedMonitorId = monitor.id
+                                    }) {
+                                        HStack {
+                                            Text(monitor.displayString)
+                                            if connectionManager.selectedMonitorId == monitor.id ||
+                                                (connectionManager.selectedMonitorId == nil && monitor.isPrimary) {
+                                                Image(systemName: "checkmark")
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // "All Monitors" option if allowed
+                                if connectionManager.allowCaptureAll {
+                                    Divider()
+                                    Button(action: {
+                                        connectionManager.selectedMonitorId = "all"
+                                    }) {
+                                        HStack {
+                                            Text("All Monitors")
+                                            if connectionManager.selectedMonitorId == "all" {
+                                                Image(systemName: "checkmark")
+                                            }
+                                        }
+                                    }
+                                }
+                            } label: {
+                                HStack {
+                                    Image(systemName: "display")
+                                    Text(selectedMonitorName)
+                                        .lineLimit(1)
+                                    Image(systemName: "chevron.down")
+                                        .font(.caption)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(Color.gray.opacity(0.15))
+                                .cornerRadius(10)
+                            }
+                        }
+                    }
                     
                     Spacer()
                     
@@ -122,9 +192,15 @@ struct MainView: View {
         
         isCapturing = true
         
+        // Determine which monitor to capture
+        let monitorId = connectionManager.selectedMonitorId
+        
         Task {
             do {
-                let image = try await ScreenshotService.shared.captureScreenshot(baseURL: pairedIP)
+                let image = try await ScreenshotService.shared.captureScreenshot(
+                    baseURL: pairedIP,
+                    monitorId: monitorId
+                )
                 try await ScreenshotService.shared.saveToPhotos(image)
                 
                 await MainActor.run {

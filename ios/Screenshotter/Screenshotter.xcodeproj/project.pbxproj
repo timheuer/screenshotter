@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		A100001C001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A100001C000 /* PrivacyInfo.xcprivacy */; };
+		A100001D001 /* MonitorInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100001D000 /* MonitorInfo.swift */; };
 		A1000001001 /* ScreenshotterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001000 /* ScreenshotterApp.swift */; };
 		A1000002001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000 /* ContentView.swift */; };
 		A1000003001 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000003000 /* QRScannerView.swift */; };
@@ -32,6 +33,7 @@
 		A1000009000 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A100000A000 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A100001C000 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A100001D000 /* MonitorInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitorInfo.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -60,6 +62,7 @@
 				A1000002000 /* ContentView.swift */,
 				A100000F000 /* Views */,
 				A1000010000 /* Services */,
+				A100001E000 /* Models */,
 				A1000011000 /* Components */,
 				A1000009000 /* Assets.xcassets */,
 				A100000A000 /* Info.plist */,
@@ -101,6 +104,14 @@
 				A1000008000 /* ToastView.swift */,
 			);
 			path = Components;
+			sourceTree = "<group>";
+		};
+		A100001E000 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A100001D000 /* MonitorInfo.swift */,
+			);
+			path = Models;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -181,6 +192,7 @@
 				A1000006001 /* ScreenshotService.swift in Sources */,
 				A1000007001 /* ConnectionManager.swift in Sources */,
 				A1000008001 /* ToastView.swift in Sources */,
+				A100001D001 /* MonitorInfo.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

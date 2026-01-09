@@ -25,6 +25,7 @@ actor ScreenshotService {
         case invalidImageData
         case photoLibraryAccessDenied
         case saveFailed(Error)
+        case monitorNotAllowed
         
         var errorDescription: String? {
             switch self {
@@ -42,15 +43,57 @@ actor ScreenshotService {
                 return "Photo library access denied"
             case .saveFailed(let error):
                 return "Failed to save: \(error.localizedDescription)"
+            case .monitorNotAllowed:
+                return "This monitor is not allowed for capture"
             }
         }
     }
     
+    /// Fetches available monitors from the Windows PC
+    /// - Parameter baseURL: The base URL of the screenshot server
+    /// - Returns: MonitorsResponse containing available monitors and capture settings
+    func fetchMonitors(baseURL: String) async throws -> MonitorsResponse {
+        guard let url = URL(string: "\(baseURL)/api/monitors") else {
+            throw ScreenshotError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 10
+        
+        let data: Data
+        let response: URLResponse
+        
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw ScreenshotError.networkError(error)
+        }
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ScreenshotError.invalidResponse
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw ScreenshotError.serverError(httpResponse.statusCode)
+        }
+        
+        let decoder = JSONDecoder()
+        return try decoder.decode(MonitorsResponse.self, from: data)
+    }
+    
     /// Captures a screenshot from the Windows PC
-    /// - Parameter baseURL: The base URL of the screenshot server (e.g., "http://192.168.1.100:5000")
+    /// - Parameters:
+    ///   - baseURL: The base URL of the screenshot server (e.g., "http://192.168.1.100:5000")
+    ///   - monitorId: Optional monitor ID to capture. nil = primary, "all" = all screens
     /// - Returns: The captured screenshot as UIImage
-    func captureScreenshot(baseURL: String) async throws -> UIImage {
-        guard let url = URL(string: "\(baseURL)/api/screenshot") else {
+    func captureScreenshot(baseURL: String, monitorId: String? = nil) async throws -> UIImage {
+        var urlString = "\(baseURL)/api/screenshot"
+        if let monitorId = monitorId {
+            urlString += "?monitor=\(monitorId)"
+        }
+        
+        guard let url = URL(string: urlString) else {
             throw ScreenshotError.invalidURL
         }
         
