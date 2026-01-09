@@ -5,8 +5,10 @@ Take screenshots on your Windows PC remotely from your iPhone. Perfect for prese
 ## ✨ Features
 
 - **Instant Capture** — One tap on your iPhone captures your Windows screen
+- **Multi-Monitor Support** — Choose a specific monitor or capture all displays
+- **Separate Images** — "All Monitors" saves each display as its own photo
 - **Easy Pairing** — Scan a QR code to connect, no manual IP entry needed
-- **Saves to Photos** — Screenshots save directly to your iPhone's photo library
+- **Saves to Photos** — Screenshots save directly to your iPhone's photo library with metadata
 - **Runs in Background** — Windows app stays quietly in your system tray
 - **No Account Required** — Works entirely on your local network, no cloud services
 - **Privacy First** — No data collection, no tracking, no analytics
@@ -34,9 +36,11 @@ Launch Screenshotter on your PC. It will appear in your system tray (bottom-righ
 
 Open Screenshotter on your iPhone and tap **Scan QR Code**. Point your camera at the QR code on your Windows screen.
 
-### 4. Capture!
+### 4. Capture
 
 Tap the capture button on your iPhone. Your Windows screen is captured and saved to your Photos.
+
+**Multi-Monitor Setup:** If you have multiple displays, use the monitor picker to select which screen to capture, or choose "All Monitors" to save each display as a separate image.
 
 ## 🔒 Privacy
 
@@ -49,12 +53,14 @@ See the [Development Guide](docs/development.md) for build instructions and tech
 ### Quick Build
 
 **Windows:**
+
 ```powershell
 cd windows/Screenshotter.Windows
 dotnet build
 ```
 
 **iOS:**
+
 ```bash
 cd ios/Screenshotter
 open Screenshotter.xcodeproj
@@ -78,5 +84,5 @@ This project is licensed under the MIT License. See [LICENSE.md](LICENSE.md) for
 ---
 
 <p align="center">
-  Made with ❤️ by <a href="https://github.com/timheuer">Tim Heuer</a>
+  Made with ❤️ by <a href="https://github.com/timheuer">Tim Heuer</a> and GitHub Copilot
 </p>
