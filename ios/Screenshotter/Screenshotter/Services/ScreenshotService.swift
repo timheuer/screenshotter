@@ -7,8 +7,8 @@ actor ScreenshotService {
     
     private init() {}
     
-    /// Album name for storing screenshots
-    private let albumName = "Screenshotter"
+    /// Album name for storing screenshots (static so it can be accessed from nonisolated contexts)
+    private static let albumName = "Screenshotter"
     
     /// App bundle identifier for metadata
     private var appBundleId: String {
@@ -180,7 +180,8 @@ actor ScreenshotService {
     /// Saves an image to the Photos library with metadata identifying it as a remote screenshot
     /// - Parameter image: The image to save
     func saveToPhotos(_ image: UIImage) async throws {
-        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+        // Request readWrite to enable album creation/access for history feature
+        let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
         
         guard status == .authorized || status == .limited else {
             throw ScreenshotError.photoLibraryAccessDenied
@@ -189,8 +190,14 @@ actor ScreenshotService {
         // Embed metadata into the image
         let imageDataWithMetadata = embedMetadata(in: image)
         
-        // Get or create the album
-        let album = try await getOrCreateAlbum()
+        // Try to get or create the album (don't fail if this doesn't work)
+        var album: PHAssetCollection? = nil
+        do {
+            album = try await getOrCreateAlbum()
+        } catch {
+            // Album creation failed, but we can still save the photo
+            album = nil
+        }
         
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             PHPhotoLibrary.shared().performChanges {
@@ -225,9 +232,12 @@ actor ScreenshotService {
     /// Gets the Screenshotter album or creates it if it doesn't exist
     /// - Returns: The album, or nil if creation fails
     private func getOrCreateAlbum() async throws -> PHAssetCollection? {
+        // Capture album name for use in closures
+        let targetAlbumName = Self.albumName
+        
         // First, try to find existing album
         let fetchOptions = PHFetchOptions()
-        fetchOptions.predicate = NSPredicate(format: "title = %@", albumName)
+        fetchOptions.predicate = NSPredicate(format: "title = %@", targetAlbumName)
         let collections = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .any, options: fetchOptions)
         
         if let existingAlbum = collections.firstObject {
@@ -237,19 +247,24 @@ actor ScreenshotService {
         // Create new album
         var albumPlaceholder: PHObjectPlaceholder?
         
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            PHPhotoLibrary.shared().performChanges {
-                let createRequest = PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: self.albumName)
-                albumPlaceholder = createRequest.placeholderForCreatedAssetCollection
-            } completionHandler: { success, error in
-                if success {
-                    continuation.resume()
-                } else if let error = error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
+        do {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                PHPhotoLibrary.shared().performChanges {
+                    let createRequest = PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: targetAlbumName)
+                    albumPlaceholder = createRequest.placeholderForCreatedAssetCollection
+                } completionHandler: { success, error in
+                    if success {
+                        continuation.resume()
+                    } else if let error = error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume()
+                    }
                 }
             }
+        } catch {
+            // If album creation fails, return nil but don't crash - photo will still be saved
+            return nil
         }
         
         // Fetch the newly created album
@@ -270,7 +285,7 @@ actor ScreenshotService {
         
         // Find the album
         let fetchOptions = PHFetchOptions()
-        fetchOptions.predicate = NSPredicate(format: "title = %@", albumName)
+        fetchOptions.predicate = NSPredicate(format: "title = %@", Self.albumName)
         let collections = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .any, options: fetchOptions)
         
         guard let album = collections.firstObject else {

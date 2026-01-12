@@ -27,7 +27,7 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Screenshotter needs permission to save captured screenshots to your Photos library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Screenshotter needs access to your Photos library to display your screenshot history.</string>
+	<string>Screenshotter needs access to your Photos library to save screenshots and display your capture history.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Screenshotter needs local network access to communicate with the screenshot server on your Windows PC.</string>
 	<key>NSBonjourServices</key>
