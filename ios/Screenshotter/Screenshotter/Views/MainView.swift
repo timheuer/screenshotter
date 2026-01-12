@@ -6,10 +6,12 @@ struct MainView: View {
     
     @State private var isCapturing = false
     @State private var lastScreenshot: UIImage?
+    @State private var lastCapturedImages: [UIImage] = []
     @State private var showToast = false
     @State private var toastMessage = ""
     @State private var toastIsSuccess = true
     @State private var showScanner = false
+    @State private var showShareSheet = false
     
     /// Whether there is a saved connection
     private var hasConnection: Bool {
@@ -202,6 +204,16 @@ struct MainView: View {
                                 .frame(maxWidth: 200, maxHeight: 150)
                                 .cornerRadius(12)
                                 .shadow(radius: 5)
+                            
+                            // Share button
+                            Button(action: { showShareSheet = true }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "square.and.arrow.up")
+                                    Text(lastCapturedImages.count > 1 ? "Share \(lastCapturedImages.count) Screenshots" : "Share")
+                                }
+                                .font(.subheadline)
+                                .foregroundColor(.blue)
+                            }
                         } else {
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color.gray.opacity(0.2))
@@ -244,6 +256,9 @@ struct MainView: View {
             .sheet(isPresented: $showScanner) {
                 QRScannerView(pairedIP: $pairedIP)
             }
+            .sheet(isPresented: $showShareSheet) {
+                ShareSheet(items: lastCapturedImages)
+            }
             .onChange(of: pairedIP) { _, newValue in
                 // Dismiss scanner when connection is established
                 if !newValue.isEmpty && showScanner {
@@ -275,6 +290,8 @@ struct MainView: View {
                     }
                     
                     await MainActor.run {
+                        // Store all captured images for sharing
+                        lastCapturedImages = screenshots.map { $0.image }
                         // Show the last captured image as preview
                         if let lastImage = screenshots.last?.image {
                             lastScreenshot = lastImage
@@ -291,6 +308,7 @@ struct MainView: View {
                     try await ScreenshotService.shared.saveToPhotos(image)
                     
                     await MainActor.run {
+                        lastCapturedImages = [image]
                         lastScreenshot = image
                         isCapturing = false
                         showToast(message: "Screenshot saved!", isSuccess: true)
@@ -316,6 +334,18 @@ struct MainView: View {
             }
         }
     }
+}
+
+// MARK: - Share Sheet
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 #Preview {
