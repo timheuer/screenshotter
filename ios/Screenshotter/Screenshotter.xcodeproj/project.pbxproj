@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A100001C001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A100001C000 /* PrivacyInfo.xcprivacy */; };
 		A100001D001 /* MonitorInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100001D000 /* MonitorInfo.swift */; };
+		A100001F001 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100001F000 /* HistoryView.swift */; };
 		A1000001001 /* ScreenshotterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001000 /* ScreenshotterApp.swift */; };
 		A1000002001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000 /* ContentView.swift */; };
 		A1000003001 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000003000 /* QRScannerView.swift */; };
@@ -34,6 +35,7 @@
 		A100000A000 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A100001C000 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A100001D000 /* MonitorInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitorInfo.swift; sourceTree = "<group>"; };
+		A100001F000 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -85,6 +87,7 @@
 				A1000003000 /* QRScannerView.swift */,
 				A1000004000 /* MainView.swift */,
 				A1000005000 /* SettingsView.swift */,
+				A100001F000 /* HistoryView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -189,6 +192,7 @@
 				A1000003001 /* QRScannerView.swift in Sources */,
 				A1000004001 /* MainView.swift in Sources */,
 				A1000005001 /* SettingsView.swift in Sources */,
+				A100001F001 /* HistoryView.swift in Sources */,
 				A1000006001 /* ScreenshotService.swift in Sources */,
 				A1000007001 /* ConnectionManager.swift in Sources */,
 				A1000008001 /* ToastView.swift in Sources */,
