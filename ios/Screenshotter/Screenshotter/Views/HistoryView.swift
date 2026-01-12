@@ -7,8 +7,8 @@ struct HistoryView: View {
     @State private var assets: [PHAsset] = []
     @State private var isLoading = true
     @State private var selectedAsset: PHAsset?
-    @State private var selectedImage: UIImage?
-    @State private var showShareSheet = false
+    @State private var imageToShare: UIImage?
+    @State private var isLoadingImage = false
     
     private let columns = [
         GridItem(.flexible(), spacing: 8),
@@ -36,10 +36,8 @@ struct HistoryView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showShareSheet) {
-                if let image = selectedImage {
-                    ShareSheet(items: [image])
-                }
+            .sheet(item: $selectedAsset) { asset in
+                ImageShareView(asset: asset)
             }
         }
         .task {
@@ -70,7 +68,7 @@ struct HistoryView: View {
             LazyVGrid(columns: columns, spacing: 8) {
                 ForEach(assets, id: \.localIdentifier) { asset in
                     ScreenshotThumbnail(asset: asset) {
-                        selectAndShare(asset: asset)
+                        selectedAsset = asset
                     }
                 }
             }
@@ -83,18 +81,78 @@ struct HistoryView: View {
         assets = await ScreenshotService.shared.fetchRecentScreenshots(limit: 50)
         isLoading = false
     }
+}
+
+// MARK: - Image Share View
+
+struct ImageShareView: View {
+    let asset: PHAsset
+    @Environment(\.dismiss) private var dismiss
     
-    private func selectAndShare(asset: PHAsset) {
-        selectedAsset = asset
-        
-        Task {
-            if let image = await ScreenshotService.shared.loadFullImage(from: asset) {
-                await MainActor.run {
-                    selectedImage = image
-                    showShareSheet = true
+    @State private var image: UIImage?
+    @State private var isLoading = true
+    @State private var showShareSheet = false
+    
+    var body: some View {
+        NavigationStack {
+            Group {
+                if isLoading {
+                    ProgressView("Loading image...")
+                } else if let image = image {
+                    VStack(spacing: 20) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .cornerRadius(12)
+                            .padding()
+                        
+                        Button(action: { showShareSheet = true }) {
+                            HStack {
+                                Image(systemName: "square.and.arrow.up")
+                                Text("Share")
+                            }
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 32)
+                            .padding(.vertical, 14)
+                            .background(Color.blue)
+                            .cornerRadius(12)
+                        }
+                    }
+                } else {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 40))
+                            .foregroundColor(.orange)
+                        Text("Could not load image")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .navigationTitle("Screenshot")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+            .sheet(isPresented: $showShareSheet) {
+                if let image = image {
+                    ShareSheet(items: [image])
                 }
             }
         }
+        .task {
+            await loadImage()
+        }
+    }
+    
+    private func loadImage() async {
+        isLoading = true
+        image = await ScreenshotService.shared.loadFullImage(from: asset)
+        isLoading = false
     }
 }
 
@@ -140,6 +198,12 @@ struct ScreenshotThumbnail: View {
             thumbnail = image
         }
     }
+}
+
+// MARK: - PHAsset Identifiable Extension
+
+extension PHAsset: @retroactive Identifiable {
+    public var id: String { localIdentifier }
 }
 
 #Preview {
