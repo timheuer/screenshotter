@@ -12,6 +12,7 @@ struct MainView: View {
     @State private var toastIsSuccess = true
     @State private var showScanner = false
     @State private var showShareSheet = false
+    @State private var showHistory = false
     
     /// Whether there is a saved connection
     private var hasConnection: Bool {
@@ -191,21 +192,50 @@ struct MainView: View {
                     
                     Spacer()
                     
-                    // Last Screenshot Thumbnail
+                    // Last Screenshot Thumbnail (tappable to view history)
                     VStack(spacing: 12) {
-                        Text("Last Screenshot")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        Button(action: { showHistory = true }) {
+                            VStack(spacing: 8) {
+                                Text("Last Screenshot")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                if let screenshot = lastScreenshot {
+                                    Image(uiImage: screenshot)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(maxWidth: 200, maxHeight: 150)
+                                        .cornerRadius(12)
+                                        .shadow(radius: 5)
+                                } else {
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.gray.opacity(0.2))
+                                        .frame(width: 200, height: 150)
+                                        .overlay(
+                                            VStack(spacing: 8) {
+                                                Image(systemName: "photo")
+                                                    .font(.largeTitle)
+                                                    .foregroundColor(.gray)
+                                                Text("No screenshot yet")
+                                                    .font(.caption)
+                                                    .foregroundColor(.gray)
+                                            }
+                                        )
+                                }
+                                
+                                HStack(spacing: 4) {
+                                    Text("View History")
+                                        .font(.caption)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption2)
+                                }
+                                .foregroundColor(.blue)
+                            }
+                        }
+                        .buttonStyle(.plain)
                         
-                        if let screenshot = lastScreenshot {
-                            Image(uiImage: screenshot)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(maxWidth: 200, maxHeight: 150)
-                                .cornerRadius(12)
-                                .shadow(radius: 5)
-                            
-                            // Share button
+                        // Share button (only when there's a screenshot)
+                        if lastScreenshot != nil {
                             Button(action: { showShareSheet = true }) {
                                 HStack(spacing: 6) {
                                     Image(systemName: "square.and.arrow.up")
@@ -214,20 +244,6 @@ struct MainView: View {
                                 .font(.subheadline)
                                 .foregroundColor(.blue)
                             }
-                        } else {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(width: 200, height: 150)
-                                .overlay(
-                                    VStack(spacing: 8) {
-                                        Image(systemName: "photo")
-                                            .font(.largeTitle)
-                                            .foregroundColor(.gray)
-                                        Text("No screenshot yet")
-                                            .font(.caption)
-                                            .foregroundColor(.gray)
-                                    }
-                                )
                         }
                     }
                     .padding(.bottom, 40)
@@ -258,6 +274,9 @@ struct MainView: View {
             }
             .sheet(isPresented: $showShareSheet) {
                 ShareSheet(items: lastCapturedImages)
+            }
+            .sheet(isPresented: $showHistory) {
+                HistoryView()
             }
             .onChange(of: pairedIP) { _, newValue in
                 // Dismiss scanner when connection is established

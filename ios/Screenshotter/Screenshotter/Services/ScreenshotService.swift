@@ -7,6 +7,9 @@ actor ScreenshotService {
     
     private init() {}
     
+    /// Album name for storing screenshots
+    private let albumName = "Screenshotter"
+    
     /// App bundle identifier for metadata
     private var appBundleId: String {
         Bundle.main.bundleIdentifier ?? "com.timheuer.screenshotter"
@@ -186,6 +189,9 @@ actor ScreenshotService {
         // Embed metadata into the image
         let imageDataWithMetadata = embedMetadata(in: image)
         
+        // Get or create the album
+        let album = try await getOrCreateAlbum()
+        
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             PHPhotoLibrary.shared().performChanges {
                 let request = PHAssetCreationRequest.forAsset()
@@ -197,6 +203,13 @@ actor ScreenshotService {
                     // Fallback to PNG without metadata if embedding fails
                     request.addResource(with: .photo, data: fallbackData, options: nil)
                 }
+                
+                // Add to album if available
+                if let album = album,
+                   let placeholder = request.placeholderForCreatedAsset {
+                    let albumChangeRequest = PHAssetCollectionChangeRequest(for: album)
+                    albumChangeRequest?.addAssets([placeholder] as NSArray)
+                }
             } completionHandler: { success, error in
                 if success {
                     continuation.resume()
@@ -205,6 +218,120 @@ actor ScreenshotService {
                 } else {
                     continuation.resume(throwing: ScreenshotError.saveFailed(NSError(domain: "ScreenshotService", code: -1)))
                 }
+            }
+        }
+    }
+    
+    /// Gets the Screenshotter album or creates it if it doesn't exist
+    /// - Returns: The album, or nil if creation fails
+    private func getOrCreateAlbum() async throws -> PHAssetCollection? {
+        // First, try to find existing album
+        let fetchOptions = PHFetchOptions()
+        fetchOptions.predicate = NSPredicate(format: "title = %@", albumName)
+        let collections = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .any, options: fetchOptions)
+        
+        if let existingAlbum = collections.firstObject {
+            return existingAlbum
+        }
+        
+        // Create new album
+        var albumPlaceholder: PHObjectPlaceholder?
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            PHPhotoLibrary.shared().performChanges {
+                let createRequest = PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: self.albumName)
+                albumPlaceholder = createRequest.placeholderForCreatedAssetCollection
+            } completionHandler: { success, error in
+                if success {
+                    continuation.resume()
+                } else if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
+        
+        // Fetch the newly created album
+        guard let placeholder = albumPlaceholder else { return nil }
+        let newAlbumFetch = PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: [placeholder.localIdentifier], options: nil)
+        return newAlbumFetch.firstObject
+    }
+    
+    /// Fetches recent screenshots from the Screenshotter album
+    /// - Parameter limit: Maximum number of screenshots to fetch
+    /// - Returns: Array of PHAsset objects, newest first
+    nonisolated func fetchRecentScreenshots(limit: Int = 20) async -> [PHAsset] {
+        // Check for read access
+        let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+        guard status == .authorized || status == .limited else {
+            return []
+        }
+        
+        // Find the album
+        let fetchOptions = PHFetchOptions()
+        fetchOptions.predicate = NSPredicate(format: "title = %@", albumName)
+        let collections = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .any, options: fetchOptions)
+        
+        guard let album = collections.firstObject else {
+            return []
+        }
+        
+        // Fetch assets from album
+        let assetFetchOptions = PHFetchOptions()
+        assetFetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        assetFetchOptions.fetchLimit = limit
+        
+        let assets = PHAsset.fetchAssets(in: album, options: assetFetchOptions)
+        
+        var result: [PHAsset] = []
+        assets.enumerateObjects { asset, _, _ in
+            result.append(asset)
+        }
+        
+        return result
+    }
+    
+    /// Loads an image from a PHAsset
+    /// - Parameters:
+    ///   - asset: The asset to load
+    ///   - targetSize: Target size for the image
+    /// - Returns: The loaded UIImage, or nil if loading fails
+    nonisolated func loadImage(from asset: PHAsset, targetSize: CGSize) async -> UIImage? {
+        await withCheckedContinuation { continuation in
+            let options = PHImageRequestOptions()
+            options.deliveryMode = .highQualityFormat
+            options.isNetworkAccessAllowed = true
+            options.isSynchronous = false
+            
+            PHImageManager.default().requestImage(
+                for: asset,
+                targetSize: targetSize,
+                contentMode: .aspectFit,
+                options: options
+            ) { image, _ in
+                continuation.resume(returning: image)
+            }
+        }
+    }
+    
+    /// Loads a full-resolution image from a PHAsset for sharing
+    /// - Parameter asset: The asset to load
+    /// - Returns: The loaded UIImage, or nil if loading fails
+    nonisolated func loadFullImage(from asset: PHAsset) async -> UIImage? {
+        await withCheckedContinuation { continuation in
+            let options = PHImageRequestOptions()
+            options.deliveryMode = .highQualityFormat
+            options.isNetworkAccessAllowed = true
+            options.isSynchronous = false
+            
+            PHImageManager.default().requestImage(
+                for: asset,
+                targetSize: PHImageManagerMaximumSize,
+                contentMode: .aspectFit,
+                options: options
+            ) { image, _ in
+                continuation.resume(returning: image)
             }
         }
     }

@@ -2,40 +2,49 @@
 
 ## Promotional Text (170 characters max)
 
-Take screenshots of your Windows PC instantly from your iPhone. Perfect for presentations, tutorials, and capturing that perfect moment on the big screen.
+Remotely capture and manage screenshots from your Windows PC on iPhone. Preview, save, and share captures instantly—no accounts, no cloud, local only.
 
 ---
 
 ## Description
 
-**Capture your Windows screen from anywhere in the room.**
+**Remote screenshot capture and management for Windows PCs.**
 
-Screenshotter lets you take screenshots of your Windows PC directly from your iPhone. Whether you're presenting, recording tutorials, or just need to capture something on your desktop without walking over to your computer, Screenshotter makes it effortless.
+PC Screenshotter turns your iPhone into a remote capture controller and screenshot viewer for your Windows computer. Capture your screen from across the room, preview results instantly on your phone, and save or share screenshots without touching your PC.
+
+Designed as a companion to the PC Screenshotter Windows app, this iOS app provides a focused, lightweight workflow for capturing and managing desktop screenshots directly from your iPhone.
 
 **How It Works**
-1. Launch the Screenshotter companion app on your Windows PC
-2. Scan the QR code displayed on your PC with your iPhone
-3. Tap to capture screenshots instantly
-4. Screenshots are saved directly to your iPhone's Photos library
 
-**Key Features**
-• **Instant Capture** – Take screenshots with a single tap
-• **Wireless Connection** – Connect via your local WiFi network
-• **Easy Setup** – Just scan a QR code to pair devices
-• **Save to Photos** – Screenshots automatically save to your photo library
-• **No Account Required** – No sign-up, no cloud services, complete privacy
+1. Run the PC Screenshotter companion app on your Windows PC
+2. Scan the pairing QR code using your iPhone
+3. Trigger screen captures remotely
+4. Instantly preview, save, or share screenshots on iOS
 
-**Perfect For**
-• Presenters who need to capture slides or demos
-• Content creators recording tutorials
-• Streamers capturing gameplay moments
-• Anyone who wants remote control of their PC screenshots
+**What You Can Do on iPhone**
+
+- Remote Capture Control – Trigger screenshots on your PC with a single tap
+- Instant Preview – View captured screenshots immediately on your iPhone
+- Screenshot History – Browse recent captures in one place
+- Save to Photos – Store screenshots directly in your iOS Photos library
+- Share Anywhere – Use the iOS Share Sheet to send images to Messages, Mail, AirDrop, and more
+- Private & Local – No accounts, no cloud services, no external servers
+
+**Ideal For**
+
+- Presenters capturing slides or live demos
+- Educators and trainers recording tutorials
+- Streamers and creators grabbing moments on demand
+- Anyone who wants fast, wireless screenshot control without interrupting their workflow
+
+**Privacy & Security**
+
+All communication stays on your local network. Screenshots are transferred directly between your PC and iPhone—nothing is uploaded, tracked, or stored externally.
 
 **Requirements**
-• Windows PC running the free Screenshotter companion app (available at GitHub)
-• Both devices must be connected to the same WiFi network
 
-Your screenshots never leave your local network. No data is sent to external servers, ensuring your privacy and security.
+- A Windows PC running the free PC Screenshotter companion app
+- iPhone and PC connected to the same local Wi-Fi network
 
 ---
 
@@ -49,6 +58,7 @@ screenshot,remote,windows,pc,capture,screen,wireless,qr,desktop,presenter,tutori
 
 **Testing Requirements:**
 To test this app, you will need:
+
 1. A Windows PC (Windows 10 or later)
 2. The free Screenshotter Windows companion app
 3. Both devices on the same local WiFi network
@@ -56,7 +66,7 @@ To test this app, you will need:
 **Setup Instructions:**
 
 1. **Download the Windows companion app:**
-   - Visit: https://github.com/timheuer/screenshotter/releases
+   - Visit: <https://github.com/timheuer/screenshotter/releases>
    - Download and run the latest Windows release
 
 2. **Launch the Windows app:**
@@ -74,6 +84,7 @@ To test this app, you will need:
    - Grant Photos permission when prompted on first use
 
 **Important Notes:**
+
 - The app requires camera permission to scan QR codes
 - The app requires Photos permission to save screenshots
 - Both devices must be on the same local network (WiFi)
