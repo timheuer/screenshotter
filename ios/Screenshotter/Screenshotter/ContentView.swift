@@ -5,19 +5,13 @@ struct ContentView: View {
     @EnvironmentObject var connectionManager: ConnectionManager
     
     var body: some View {
-        Group {
-            if pairedIP.isEmpty {
-                QRScannerView(pairedIP: $pairedIP)
-            } else {
-                MainView(pairedIP: $pairedIP)
+        MainView(pairedIP: $pairedIP)
+            .onChange(of: pairedIP) { _, newValue in
+                connectionManager.pairedIP = newValue.isEmpty ? nil : newValue
             }
-        }
-        .onChange(of: pairedIP) { _, newValue in
-            connectionManager.pairedIP = newValue.isEmpty ? nil : newValue
-        }
-        .onAppear {
-            connectionManager.pairedIP = pairedIP.isEmpty ? nil : pairedIP
-        }
+            .onAppear {
+                connectionManager.pairedIP = pairedIP.isEmpty ? nil : pairedIP
+            }
     }
 }
 

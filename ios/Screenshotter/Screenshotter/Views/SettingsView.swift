@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var showTestResult = false
     @State private var testResultSuccess = false
     @State private var showRescanConfirmation = false
+    @State private var showClearConfirmation = false
     
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -26,9 +27,9 @@ struct SettingsView: View {
                     Spacer()
                     HStack(spacing: 6) {
                         Circle()
-                            .fill(connectionManager.isConnected ? Color.green : Color.red)
+                            .fill(pairedIP.isEmpty ? Color.orange : (connectionManager.isConnected ? Color.green : Color.red))
                             .frame(width: 10, height: 10)
-                        Text(connectionManager.isConnected ? "Connected" : "Disconnected")
+                        Text(pairedIP.isEmpty ? "No Connection Saved" : (connectionManager.isConnected ? "Connected" : "Disconnected"))
                             .foregroundColor(.secondary)
                     }
                 }
@@ -42,35 +43,61 @@ struct SettingsView: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
+                    
+                    Button(role: .destructive, action: {
+                        showClearConfirmation = true
+                    }) {
+                        HStack {
+                            Image(systemName: "trash")
+                            Text("Clear Connection")
+                        }
+                    }
+                    .confirmationDialog(
+                        "Clear Connection?",
+                        isPresented: $showClearConfirmation,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Clear", role: .destructive) {
+                            pairedIP = ""
+                            manualIP = ""
+                            manualPort = "5000"
+                            showTestResult = false
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("This will remove the saved connection information. You can scan or enter a new connection later.")
+                    }
                 }
             } header: {
                 Text("Current Connection")
             }
             
-            Section {
-                Button(action: {
-                    showRescanConfirmation = true
-                }) {
-                    HStack {
-                        Image(systemName: "qrcode.viewfinder")
-                        Text("Re-scan QR Code")
+            if !pairedIP.isEmpty {
+                Section {
+                    Button(action: {
+                        showRescanConfirmation = true
+                    }) {
+                        HStack {
+                            Image(systemName: "qrcode.viewfinder")
+                            Text("Re-scan QR Code")
+                        }
                     }
-                }
-                .confirmationDialog(
-                    "Re-scan QR Code?",
-                    isPresented: $showRescanConfirmation,
-                    titleVisibility: .visible
-                ) {
-                    Button("Re-scan", role: .destructive) {
-                        pairedIP = ""
-                        dismiss()
+                    .confirmationDialog(
+                        "Re-scan QR Code?",
+                        isPresented: $showRescanConfirmation,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Re-scan", role: .destructive) {
+                            pairedIP = ""
+                            dismiss()
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("This will disconnect from the current PC and open the QR scanner.")
                     }
-                    Button("Cancel", role: .cancel) {}
-                } message: {
-                    Text("This will disconnect from the current PC and open the QR scanner.")
+                } header: {
+                    Text("Pairing")
                 }
-            } header: {
-                Text("Pairing")
             }
             
             Section {

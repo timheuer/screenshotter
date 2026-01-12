@@ -9,6 +9,12 @@ struct MainView: View {
     @State private var showToast = false
     @State private var toastMessage = ""
     @State private var toastIsSuccess = true
+    @State private var showScanner = false
+    
+    /// Whether there is a saved connection
+    private var hasConnection: Bool {
+        !pairedIP.isEmpty
+    }
     
     /// Returns the display name for the selected monitor
     private var selectedMonitorName: String {
@@ -27,6 +33,28 @@ struct MainView: View {
         connectionManager.monitors.count > 1 || connectionManager.allowCaptureAll
     }
     
+    /// Status text based on connection state
+    private var statusText: String {
+        if !hasConnection {
+            return "No Connection Saved"
+        } else if connectionManager.isConnected {
+            return "Connected"
+        } else {
+            return "Disconnected"
+        }
+    }
+    
+    /// Status color based on connection state
+    private var statusColor: Color {
+        if !hasConnection {
+            return .orange
+        } else if connectionManager.isConnected {
+            return .green
+        } else {
+            return .red
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -34,10 +62,10 @@ struct MainView: View {
                     // Connection Status
                     HStack(spacing: 8) {
                         Circle()
-                            .fill(connectionManager.isConnected ? Color.green : Color.red)
+                            .fill(statusColor)
                             .frame(width: 12, height: 12)
                         
-                        Text(connectionManager.isConnected ? "Connected" : "Disconnected")
+                        Text(statusText)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -96,6 +124,35 @@ struct MainView: View {
                         }
                     }
                     
+                    // Scan QR Code button when no connection saved
+                    if !hasConnection {
+                        VStack(spacing: 16) {
+                            Text("Connect to your Windows PC")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                            
+                            Text("Scan the QR code displayed in the Screenshotter Windows app to connect.")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 32)
+                            
+                            Button(action: { showScanner = true }) {
+                                HStack {
+                                    Image(systemName: "qrcode.viewfinder")
+                                    Text("Scan QR Code")
+                                }
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 14)
+                                .background(Color.blue)
+                                .cornerRadius(12)
+                            }
+                        }
+                        .padding(.top, 40)
+                    }
+                    
                     Spacer()
                     
                     // Take Screenshot Button
@@ -127,8 +184,8 @@ struct MainView: View {
                             }
                         }
                     }
-                    .disabled(isCapturing || !connectionManager.isConnected)
-                    .opacity(connectionManager.isConnected ? 1 : 0.5)
+                    .disabled(isCapturing || !connectionManager.isConnected || !hasConnection)
+                    .opacity(connectionManager.isConnected && hasConnection ? 1 : 0.5)
                     
                     Spacer()
                     
@@ -184,11 +241,20 @@ struct MainView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showScanner) {
+                QRScannerView(pairedIP: $pairedIP)
+            }
+            .onChange(of: pairedIP) { _, newValue in
+                // Dismiss scanner when connection is established
+                if !newValue.isEmpty && showScanner {
+                    showScanner = false
+                }
+            }
         }
     }
     
     private func captureScreenshot() {
-        guard !isCapturing, connectionManager.isConnected else { return }
+        guard !isCapturing, connectionManager.isConnected, hasConnection else { return }
         
         isCapturing = true
         
